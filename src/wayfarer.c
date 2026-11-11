@@ -247,6 +247,7 @@ static void (*n_cbAddCtl)(void *, void *, u64);
 static void (*n_cbBegin)(void *);
 static u64 (*n_cbEnd)(void *);
 static void (*n_qSubmit)(void *, int, u64 *);
+static void (*n_qFlush)(void *);
 static void (*n_cbFence)(void *, void *, int, int);
 static void (*n_cbStride)(void *, long);
 static void (*n_cbT2B)(void *, void *, void *, const int *, u64, int);
@@ -288,6 +289,7 @@ static int resolve_nvn(void *dev, GetProc gp)
     R("nvnCommandBufferBeginRecording", n_cbBegin);
     R("nvnCommandBufferEndRecording", n_cbEnd);
     R("nvnQueueSubmitCommands", n_qSubmit);
+    R("nvnQueueFlush", n_qFlush);
     R("nvnCommandBufferFenceSync", n_cbFence);
     R("nvnCommandBufferSetCopyRowStride", n_cbStride);
     R("nvnCommandBufferCopyTextureToBuffer", n_cbT2B);
@@ -339,7 +341,7 @@ static u8 g_mpb[0x100] __attribute__((aligned(64)));
 static u8 g_sync[0x100] __attribute__((aligned(64)));
 static u8 g_cb[2][0x400] __attribute__((aligned(64)));
 static u8 g_ctl[2][0x1000] __attribute__((aligned(16)));
-static int g_ready, g_fail, g_logged;
+static int g_ready, g_fail, g_logged, g_timeouts;
 static u8 *g_cpu;
 static u64 g_gpu;
 
@@ -542,8 +544,10 @@ static void draw_menu(void *queue, void *tex, void *win)
     n_cbT2B(g_cb[0], tex, 0, region, buf, 0);
     n_cbFence(g_cb[0], g_sync, 0, 0);
     rec_submit(queue, 0);
-    if (n_syncWait(g_sync, 100000000ull) >= 2) {
+    n_qFlush(queue);   /* the emulator only runs queued work after a flush */
+    if (n_syncWait(g_sync, 20000000ull) >= 2) {
         dbg("[wayfarer] copy wait failed\n");
+        if (++g_timeouts >= 3) { g_fail = 1; dbg("[wayfarer] overlay disabled after repeated timeouts\n"); }
         return;
     }
     n_mpInval(g_pool, BUF_OFF, (u64)stride * h);
