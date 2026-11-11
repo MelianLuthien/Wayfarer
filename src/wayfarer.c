@@ -97,6 +97,29 @@ static int get_program_id(u64 *out)
     return (int)x0;
 }
 
+/* ---- time and "is the world running" ------------------------------------ */
+
+static u64 now_ms(void)
+{
+    u64 t, f;
+    __asm__ volatile("mrs %0, cntpct_el0" : "=r"(t));
+    __asm__ volatile("mrs %0, cntfrq_el0" : "=r"(f));
+    f /= 1000;
+    return f ? t / f : 0;
+}
+
+/* Stamped every time Link's update runs. The menu only opens (and stays open) while this is fresh,
+ * which rules out the title screen, loading screens and the game's own menus. */
+static volatile u64 g_link_tick;
+#define WORLD_FRESH_MS 450
+#define WORLD_STALE_CLOSE_MS 2500
+
+static int world_running(void)
+{
+    u64 t = g_link_tick;
+    return t && now_ms() - t < WORLD_FRESH_MS;
+}
+
 /* ---- menu state ------------------------------------------------------- */
 
 #define ROWS 5
@@ -141,6 +164,7 @@ static void menu_input(u64 e)
 static void menu_input_inner(u64 e)
 {
     if (e & BIT(B_R3)) {
+        if (!g_open && !world_running()) { dbg("[wayfarer] R3 ignored: the game is not running right now\n"); return; }
         g_open = !g_open;
         g_dlg = 0;
         if (g_open) dbg("[wayfarer] menu open\n"); else dbg("[wayfarer] menu closed\n");
@@ -198,6 +222,12 @@ long wf_npad(void *out, int count, const u32 *id, u64 fn_off, u64 idx)
             if (e) menu_input(e);
         } else {
             g_prev[idx] = 0;
+        }
+        if (g_open && now_ms() - g_link_tick > WORLD_STALE_CLOSE_MS) {
+            g_open = 0;
+            g_dlg = 0;
+            g_gen++;
+            dbg("[wayfarer] menu closed: the game stopped running\n");
         }
         if (was_open || g_open) {
             for (long i = 0; i < n; i++) {
