@@ -102,7 +102,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.5"
+#define WF_VERSION "v261111.6"
 
 static u64 now_ms(void)
 {
@@ -142,7 +142,14 @@ static const char descs_blob[] =
     "Ammo refills to your current limits\0"
     "Magic refills to the current limit";
 static const char tabs_blob[] = "Player\0Items\0World\0Teleport";
-static const char soon_blob[] = "Equipment and quest items\0Time, weather and camera";
+static const char wlabels_blob[] = "Time of day\0Mark position\0Return to mark\0Switch age";
+static const char wdescs_blob[] =
+    "Left / Right picks the hour, A sets it\0"
+    "Remember where Link stands\0"
+    "Go back to the marked place\0"
+    "Child or adult; the map reloads";
+#include "items.h"
+#define WORLD_ROWS 4
 
 static const char *nth(const char *blob, int i)
 {
@@ -160,10 +167,16 @@ static volatile int g_warned;    /* warning accepted this session */
 static volatile int g_pending;   /* row waiting for the warning */
 static volatile int g_tab;       /* 0 Player, 1 Items, 2 World, 3 Teleport */
 static volatile int g_tsel;      /* selected destination */
+static volatile int g_wsel;      /* selected World row */
+static volatile int g_hour = 12; /* hour chosen on the World tab */
+static volatile int g_isel;      /* selected inventory item */
+volatile int g_world_req;        /* 1 time, 2 mark, 3 return, 4 age: served on the game thread */
+volatile int g_item_req;         /* (item * 256 + op) + 1: served on the game thread */
+static volatile int g_icount[ITEM_COUNT];   /* what the pouch holds, refreshed while the Items tab is open */
 extern volatile int g_tp_req;    /* set here, served on the game thread (cheats.h) */
 static volatile int g_cheat[4];  /* God, Rupees, Items, Magic (stage 3 will read these) */
 
-enum { B_A = 0, B_B = 1, B_R3 = 5, B_L = 6, B_R = 7, B_LEFT = 12, B_UP = 13, B_RIGHT = 14, B_DOWN = 15 };
+enum { B_A = 0, B_B = 1, B_X = 2, B_Y = 3, B_R3 = 5, B_L = 6, B_R = 7, B_LEFT = 12, B_UP = 13, B_RIGHT = 14, B_DOWN = 15 };
 #define BIT(n) (1ull << (n))
 
 static void menu_input_inner(u64 e);
@@ -173,16 +186,29 @@ static void menu_input(u64 e)
     g_gen++;
 }
 
-/* what 0..3: flip that cheat; 4: teleport to the selected destination. */
+/* what: 0..3 flip that cheat; 4 teleport to the selected destination; 100 + n a World action
+ * (n: 0 time, 1 mark, 2 return, 3 age); 1000 + item * 256 + op an inventory edit. */
 static void activate(int what)
 {
     if (what == 4) {
         g_tp_req = g_tsel + 1;
         g_open = 0;
         dbgx("teleport chosen", (u64)g_tsel);
+    } else if (what >= 1000) {
+        g_item_req = what - 1000 + 1;
+    } else if (what >= 100) {
+        g_world_req = what - 100 + 1;
+        if (what == 103) g_open = 0;   /* the map reloads */
     } else {
         g_cheat[what] = !g_cheat[what];
     }
+}
+
+/* The first game-changing action of a session shows the warning. */
+static void request(int what)
+{
+    if (!g_warned) { g_pending = what; g_dlg = 1; }
+    else activate(what);
 }
 
 static void menu_input_inner(u64 e)
@@ -211,19 +237,33 @@ static void menu_input_inner(u64 e)
     if (g_tab == 0) {
         if (e & BIT(B_UP)) g_sel = (g_sel + PLAYER_ROWS - 1) % PLAYER_ROWS;
         if (e & BIT(B_DOWN)) g_sel = (g_sel + 1) % PLAYER_ROWS;
-        if (e & BIT(B_A)) {
-            if (!g_warned) { g_pending = g_sel; g_dlg = 1; }
-            else activate(g_sel);
+        if (e & BIT(B_A)) request(g_sel);
+    } else if (g_tab == 1) {
+        int s = g_isel;
+        if (e & BIT(B_LEFT)) s = s > 0 ? s - 1 : ITEM_COUNT - 1;
+        if (e & BIT(B_RIGHT)) s = s < ITEM_COUNT - 1 ? s + 1 : 0;
+        if ((e & BIT(B_UP)) && s >= 12) s -= 12;
+        if ((e & BIT(B_DOWN)) && s + 12 < ITEM_COUNT) s += 12;
+        g_isel = s;
+        if (e & BIT(B_A)) request(1000 + s * 256 + 200);
+        if (ITEM_IS_QTY(s)) {
+            if (e & BIT(B_X)) request(1000 + s * 256 + 65);
+            if (e & BIT(B_Y)) request(1000 + s * 256 + 63);
         }
+    } else if (g_tab == 2) {
+        if (e & BIT(B_UP)) g_wsel = (g_wsel + WORLD_ROWS - 1) % WORLD_ROWS;
+        if (e & BIT(B_DOWN)) g_wsel = (g_wsel + 1) % WORLD_ROWS;
+        if (g_wsel == 0) {
+            if (e & BIT(B_LEFT)) g_hour = (g_hour + 23) % 24;
+            if (e & BIT(B_RIGHT)) g_hour = (g_hour + 1) % 24;
+        }
+        if (e & BIT(B_A)) request(100 + g_wsel);
     } else if (g_tab == 3) {
         if (e & BIT(B_UP)) g_tsel = (g_tsel + TP_COUNT - 1) % TP_COUNT;
         if (e & BIT(B_DOWN)) g_tsel = (g_tsel + 1) % TP_COUNT;
         if (e & BIT(B_LEFT)) g_tsel = g_tsel >= 7 ? g_tsel - 7 : 0;
         if (e & BIT(B_RIGHT)) g_tsel = g_tsel + 7 < TP_COUNT ? g_tsel + 7 : TP_COUNT - 1;
-        if (e & BIT(B_A)) {
-            if (!g_warned) { g_pending = 4; g_dlg = 1; }
-            else activate(4);
-        }
+        if (e & BIT(B_A)) request(4);
     }
 }
 
@@ -553,11 +593,18 @@ static void box(int x, int y, int w, int h, int r, int g, int b, int a)
 #define ICON_ROW_RUPEES 0
 #define ICON_ROW_ITEMS 0
 #define ICON_ROW_MAGIC 0
+#define ICON_ROW_TIME 0
+#define ICON_ROW_MARK 0
+#define ICON_ROW_RETURN 0
+#define ICON_ROW_AGE 0
+#define ICON_SWORD_KOKIRI 0
 #endif
 #ifndef ICON_COUNT
 #define ICON_COUNT 0
 #define ICON_PX 64
 #endif
+
+static int g_icon_am = 255;   /* alpha of the next icons, 0..255 */
 
 static int px_a(const u8 *src, int x, int y, int c)
 {
@@ -592,7 +639,7 @@ static void draw_icon(int lx, int ly, int sz, int idx)
                         sb += px_a(src, xx, yy, 2) * a;
                     }
                 if (!sa) continue;
-                blend(lx * g_S + x, ly * g_S + y, (int)(sr / sa), (int)(sg / sa), (int)(sb / sa), (int)(sa / wsum));
+                blend(lx * g_S + x, ly * g_S + y, (int)(sr / sa), (int)(sg / sa), (int)(sb / sa), (int)(sa / wsum) * g_icon_am / 255);
             } else {
                 int sx = ((2 * x + 1) * ICON_PX * 128) / d - 128;
                 int sy = ((2 * y + 1) * ICON_PX * 128) / d - 128;
@@ -607,7 +654,7 @@ static void draw_icon(int lx, int ly, int sz, int idx)
                     sb += px_a(src, ox, oy, 2) * (long)a;
                 }
                 if (!sa) continue;
-                blend(lx * g_S + x, ly * g_S + y, (int)(sr / sa), (int)(sg / sa), (int)(sb / sa), (int)(sa / (wsum ? wsum : 1)));
+                blend(lx * g_S + x, ly * g_S + y, (int)(sr / sa), (int)(sg / sa), (int)(sb / sa), (int)(sa / (wsum ? wsum : 1)) * g_icon_am / 255);
             }
         }
     }
@@ -683,19 +730,77 @@ static void paint_panel(void)
         /* scroll thumb */
         fill(PW - 22, 80, 4, 174, 0, 0, 0, 90);
         fill(PW - 22, 80 + (174 - 24) * g_tsel / (TP_COUNT - 1), 4, 24, GOLD, 220);
-    } else {
-        draw_icon((PW - 64) / 2, 102, 64, ICON_TAB_PLAYER + g_tab);
-        text_c(176, "Coming soon", GOLD);
-        text_c(200, nth(soon_blob, g_tab - 1), 170, 168, 140);
+    } else if (g_tab == 1) {
+        int top = g_isel / 12 - 1, rows = (ITEM_COUNT + 11) / 12;
+        if (top > rows - 4) top = rows - 4;
+        if (top < 0) top = 0;
+        for (int r = 0; r < 4; r++)
+            for (int c = 0; c < 12; c++) {
+                int i = (top + r) * 12 + c;
+                if (i >= ITEM_COUNT) break;
+                int x = 18 + c * 37, y = 80 + r * 37, have = g_icount[i] > 0;
+                if (i == g_isel) { fill(x, y, 36, 36, GOLD, 72); box(x, y, 36, 36, GOLD, 255); }
+                else fill(x, y, 36, 36, 0, 0, 0, 50);
+                int ic = i < 42 ? ICON_SWORD_KOKIRI + i : i < 56 ? ICON_SWORD_KOKIRI + i :
+                         i < 58 ? ICON_WALLET_ADULT + (i - 56) : i < 61 ? ICON_MAGIC_METER + (i - 58) :
+                         i < 70 ? ICON_STONE_KOKIRI + (i - 61) : i < 82 ? ICON_SONG_ZELDA + (i - 70) :
+                         ICON_STONE_AGONY + (i - 82);
+                g_icon_am = have ? 255 : 70;
+                draw_icon(x + 2, y + 2, 32, ic);
+                g_icon_am = 255;
+                if (have) fill(x + 29, y + 3, 4, 4, 120, 220, 90, 255);
+            }
+        fill(16, 232, PW - 32, 1, GOLD, 120);
+        text(18, 236, nth(item_labels, g_isel), CREAM, 255);
+        {
+            char st[16];
+            int n = g_icount[g_isel], k = 0;
+            if (ITEM_IS_QTY(g_isel)) {
+                if (n > 0) {
+                    char d[8];
+                    int m = 0;
+                    st[k++] = 'x';
+                    st[k++] = ' ';
+                    while (n > 0 && m < 7) { d[m++] = (char)('0' + n % 10); n /= 10; }
+                    while (m > 0) st[k++] = d[--m];
+                    st[k] = 0;
+                } else { st[0] = '-'; st[1] = 0; }
+            } else {
+                const char *w = n > 0 ? "Owned" : "-";
+                while (*w) st[k++] = *w++;
+                st[k] = 0;
+            }
+            if (n > 0 || g_icount[g_isel] > 0) text(PW - 18 - text_w(st), 236, st, 150, 226, 120, 255);
+            else text(PW - 18 - text_w(st), 236, st, 160, 160, 140, 255);
+        }
+    } else if (g_tab == 2) {
+        static const u8 wicon[WORLD_ROWS] = {ICON_ROW_TIME, ICON_ROW_MARK, ICON_ROW_RETURN, ICON_ROW_AGE};
+        for (int i = 0; i < WORLD_ROWS; i++) {
+            int y = 80 + i * 44;
+            if (i == g_wsel) { fill(16, y, PW - 32, 42, GOLD, 60); box(16, y, PW - 32, 42, GOLD, 200); }
+            draw_icon(24, y + 5, 32, wicon[i]);
+            text(66, y + 3, nth(wlabels_blob, i), CREAM, 255);
+            text(66, y + 21, nth(wdescs_blob, i), 170, 168, 140, 255);
+            if (i == 0) {
+                char t[8];
+                t[0] = (char)('0' + g_hour / 10);
+                t[1] = (char)('0' + g_hour % 10);
+                t[2] = ':'; t[3] = '0'; t[4] = '0'; t[5] = 0;
+                text(PW - 24 - text_w("<  00:00  >"), y + 11, "<", GOLD, 255);
+                text(PW - 24 - text_w("00:00  >"), y + 11, t, CREAM, 255);
+                text(PW - 24 - text_w(">"), y + 11, ">", GOLD, 255);
+            }
+        }
     }
 
     fill(16, 260, PW - 32, 1, GOLD, 120);
     {
         int x = 18;
-        x = hint(x, "A", g_tab == 3 ? "Go" : "Select");
+        x = hint(x, "A", g_tab == 3 ? "Go" : g_tab == 1 ? "Toggle" : "Select");
         x = hint(x, "B", "Close");
         x = hint(x, "LR", "Tab");
         if (g_tab == 3) text(x, 266, "Left / Right: page", 170, 168, 140, 255);
+        if (g_tab == 1 && ITEM_IS_QTY(g_isel)) text(x, 266, "X more  Y less", 170, 168, 140, 255);
     }
 
     if (g_dlg) {

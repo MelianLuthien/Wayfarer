@@ -225,26 +225,26 @@ static int ev_arg(u8 *arg, const char *name, u32 type, u64 value)
     return 1;
 }
 
-static void do_teleport(u64 link_actor, int idx)
+static int do_teleport(u64 link_actor, int idx)
 {
     u64 b = g_base;
-    if (idx < 0 || idx >= TP_COUNT) return;
+    if (idx < 0 || idx >= TP_COUNT) return 0;
     u64 now = now_ms();
-    if (g_tp_last_ms && now - g_tp_last_ms < 8000) { dbg("[wayfarer] teleport ignored: a request is still in progress\n"); return; }
+    if (g_tp_last_ms && now - g_tp_last_ms < 8000) { dbg("[wayfarer] teleport ignored: a request is still in progress\n"); return 0; }
     u64 gh = *(u64 *)(b + OFF_GD_HOLDER), eh = *(u64 *)(b + OFF_EV_HOLDER);
     void *gd = gh ? *(void **)gh : 0, *em = eh ? *(void **)eh : 0;
-    if (!gd || !em) { dbg("[wayfarer] teleport unavailable: managers missing\n"); return; }
-    if (((FnEvent)(b + FN_EVENT))(em, 0)) { dbg("[wayfarer] teleport waits: an event is playing\n"); return; }
+    if (!gd || !em) { dbg("[wayfarer] teleport unavailable: managers missing\n"); return 0; }
+    if (((FnEvent)(b + FN_EVENT))(em, 0)) { dbg("[wayfarer] teleport waits: an event is playing\n"); return 0; }
     u8 loading = 0;
-    if (((FnBoolGet)(b + FN_BOOL2))(gd, &loading, H_LOADING) && loading) { dbg("[wayfarer] teleport ignored: a map is loading\n"); return; }
+    if (((FnBoolGet)(b + FN_BOOL2))(gd, &loading, H_LOADING) && loading) { dbg("[wayfarer] teleport ignored: a map is loading\n"); return 0; }
     u64 child_word = 1;
     if (!((FnBoolGet)(b + FN_BOOL2))(gd, (u8 *)&child_word, H_CHILD)) child_word = 1;
     int child = (child_word & 1) != 0;
 
     int base_i = idx * 6 + (child ? 0 : 3);
     const char *banc = nth(tp_dest, base_i), *start = nth(tp_dest, base_i + 1), *boot = nth(tp_dest, base_i + 2);
-    if (!*banc) { dbg("[wayfarer] teleport: that place does not exist for this age\n"); return; }
-    if (!cpy(g_tp_str[0], banc, 128) || !cpy(g_tp_str[1], start, 128) || !cpy(g_tp_str[2], boot, 128)) return;
+    if (!*banc) { dbg("[wayfarer] teleport: that place does not exist for this age\n"); return 0; }
+    if (!cpy(g_tp_str[0], banc, 128) || !cpy(g_tp_str[1], start, 128) || !cpy(g_tp_str[2], boot, 128)) return 0;
 
     u8 *arg = g_tp_arg;
     ((FnArg)(b + FN_MAKE_ARG))(arg);
@@ -269,7 +269,10 @@ static void do_teleport(u64 link_actor, int idx)
     g_tp_last_ms = now;
     dbgx(ok ? "teleport requested, destination" : "teleport request could not be built, destination", (u64)idx);
     dbgx("teleport request result", result);
+    return ok;
 }
+
+#include "cheats2.h"
 
 /* Called from the player actor's update (owner = its owner object). */
 void wf_actor_pre(void *owner)
@@ -306,6 +309,19 @@ void wf_actor_pre(void *owner)
         int req = __atomic_exchange_n(&g_tp_req, 0, __ATOMIC_SEQ_CST);
         if (req) do_teleport(a, req - 1);
     }
+
+    if (g_world_req) {
+        int r = __atomic_exchange_n(&g_world_req, 0, __ATOMIC_SEQ_CST);
+        if (r == 1) set_time_hour(g_hour);
+        else if (r == 2) do_mark(a);
+        else if (r == 3) do_return(a);
+        else if (r == 4) do_age(a);
+    }
+    if (g_item_req) {
+        int r = __atomic_exchange_n(&g_item_req, 0, __ATOMIC_SEQ_CST) - 1;
+        if (game_ready()) item_edit(r >> 8, r & 255);
+    }
+    if (g_open && g_tab == 1 && (++g_icnt_tick % 20 == 0 || g_icnt_dirty)) { g_icnt_dirty = 0; refresh_counts(); }
 
     if (!(g_cheat[1] | g_cheat[2] | g_cheat[3])) return;
     if (++g_ticks % (g_cheat[3] ? 3 : 10)) return;   /* the magic meter needs a quicker rhythm */
