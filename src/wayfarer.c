@@ -100,7 +100,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.2"
+#define WF_VERSION "v261111.3"
 
 static u64 now_ms(void)
 {
@@ -125,6 +125,8 @@ static int world_running(void)
 
 /* ---- menu state ------------------------------------------------------- */
 
+#include "destinations.h"
+
 #define ROWS 5
 /* No static pointer tables anywhere: the module has no relocations, so any
  * absolute address stored in data would be wrong at runtime. */
@@ -136,7 +138,7 @@ static const char descs_blob[] =
     "Wallet tops up to its current size\0"
     "Ammo refills to your current limits\0"
     "Magic refills to the current limit\0"
-    "Jump to key places (coming soon)";
+    "Jump to key places on the map";
 
 static const char *nth(const char *blob, int i)
 {
@@ -152,6 +154,9 @@ static volatile int g_sel;       /* selected row */
 static volatile int g_dlg;       /* warning dialog visible */
 static volatile int g_warned;    /* warning accepted this session */
 static volatile int g_pending;   /* row waiting for the warning */
+static volatile int g_page;      /* 0 main list, 1 teleport list */
+static volatile int g_tsel;      /* selected destination */
+extern volatile int g_tp_req;    /* set here, served on the game thread (cheats.h) */
 static volatile int g_cheat[4];  /* God, Rupees, Items, Magic (stage 3 will read these) */
 
 enum { B_A = 0, B_B = 1, B_R3 = 5, B_LEFT = 12, B_UP = 13, B_RIGHT = 14, B_DOWN = 15 };
@@ -170,6 +175,7 @@ static void menu_input_inner(u64 e)
         if (!g_open && !world_running()) { dbg("[wayfarer] R3 ignored: the game is not running right now\n"); return; }
         g_open = !g_open;
         g_dlg = 0;
+        g_page = 0;
         if (g_open) dbg("[wayfarer] menu open\n"); else dbg("[wayfarer] menu closed\n");
         return;
     }
@@ -177,10 +183,25 @@ static void menu_input_inner(u64 e)
     if (g_dlg) {
         if (e & BIT(B_A)) {
             g_warned = 1;
-            g_cheat[g_pending] = !g_cheat[g_pending];
+            if (g_pending == 4) { g_page = 1; g_tsel = 0; }
+            else g_cheat[g_pending] = !g_cheat[g_pending];
             g_dlg = 0;
         } else if (e & BIT(B_B)) {
             g_dlg = 0;
+        }
+        return;
+    }
+    if (g_page == 1) {
+        if (e & BIT(B_UP)) g_tsel = (g_tsel + TP_COUNT - 1) % TP_COUNT;
+        if (e & BIT(B_DOWN)) g_tsel = (g_tsel + 1) % TP_COUNT;
+        if (e & BIT(B_LEFT)) g_tsel = g_tsel >= 7 ? g_tsel - 7 : 0;
+        if (e & BIT(B_RIGHT)) g_tsel = g_tsel + 7 < TP_COUNT ? g_tsel + 7 : TP_COUNT - 1;
+        if (e & BIT(B_B)) g_page = 0;
+        if (e & BIT(B_A)) {
+            g_tp_req = g_tsel + 1;
+            g_open = 0;
+            g_page = 0;
+            dbgx("teleport chosen", (u64)g_tsel);
         }
         return;
     }
@@ -189,10 +210,9 @@ static void menu_input_inner(u64 e)
     if (e & BIT(B_B)) g_open = 0;
     if (e & BIT(B_A)) {
         int r = g_sel;
-        if (r < 4) {
-            if (!g_warned) { g_pending = r; g_dlg = 1; }
-            else g_cheat[r] = !g_cheat[r];
-        }
+        if (!g_warned) { g_pending = r; g_dlg = 1; }
+        else if (r < 4) g_cheat[r] = !g_cheat[r];
+        else { g_page = 1; g_tsel = 0; }
     }
 }
 
@@ -525,6 +545,21 @@ static void paint_panel(void)
     text(PW - 14 - text_w(WF_VERSION), 12, WF_VERSION, 150, 140, 105, 255);
     fill(16, 34, PW - 32, 1, GOLD, 200);
 
+    if (g_page == 1) {
+        int top = g_tsel - 3;
+        if (top > TP_COUNT - 8) top = TP_COUNT - 8;
+        if (top < 0) top = 0;
+        for (int k = 0; k < 8; k++) {
+            int i = top + k, y = 40 + k * 20;
+            if (i == g_tsel) { fill(10, y, PW - 20, 20, GOLD, 72); text(16, y + 1, ">", GOLD, 255); }
+            text(34, y + 1, nth(tp_names, i), CREAM, 255);
+        }
+        if (top > 0) text(PW - 24, 40, "^", GOLD, 255);
+        if (top + 8 < TP_COUNT) text(PW - 24, 40 + 7 * 20, "v", GOLD, 255);
+        fill(16, 204, PW - 32, 1, GOLD, 120);
+        text(16, 210, "A go    B back    L/R page", 170, 168, 140, 255);
+        goto after_rows;
+    }
     for (int i = 0; i < ROWS; i++) {
         int y = 42 + i * 28;
         if (i == g_sel) fill(10, y, PW - 20, 26, GOLD, 72);
@@ -539,6 +574,7 @@ static void paint_panel(void)
     fill(16, 186, PW - 32, 1, GOLD, 120);
     text(16, 190, row_desc(g_sel), 214, 207, 180, 255);
     text(16, 212, "A toggle      B / R3 close", 170, 168, 140, 255);
+after_rows:
 
     if (g_dlg) {
         fill(10, 40, PW - 20, 142, 8, 16, 10, 240);

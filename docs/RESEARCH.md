@@ -119,3 +119,17 @@ Teleport logic derives from Hookshot (GPL-3.0). Wayfarer is therefore GPL-3.0.
   items = 0x5963E0 (count), 0x595CF0 (capacity of the current pouch), 0x110D570 (add) for Arrow, Bomb, DekuSeed,
   DekuNut, DekuStick, Bombchu (age-filtered; bow/bomb bag/slingshot ownership decides arrows/bombs/seeds).
 - rc1 data tables use R_AARCH64_RELATIVE relocations (a real .rela.dyn); Wayfarer has none, so it avoids pointer tables.
+
+## Stage 4: teleport (v261111.3, untested until the user runs it)
+
+- `tools/gendest.py` turns Hookshot's destination table into `src/destinations.h` (two string blobs, no pointer
+  tables: names, then six strings per place). Menu: Teleport row opens a scrolling list (Up/Down, Left/Right jump 7,
+  A go, B back); A queues `g_tp_req`, closes the menu.
+- The request is served on the game thread inside the player-actor hook (`do_teleport` in `cheats.h`), following
+  Hookshot's `oot_teleport`: refuse within 8 s of the last one, while an event plays, or while a map loads; pick
+  the child or adult map from `Sequence_IsChildhood` (hash 0xcea220d3, getter 0x20d9c0); build the
+  `Dm_SY_BancChangeGo` event argument in a static 0x1b20-byte buffer (strings copied to static buffers, since the
+  request does not copy them), set the starter actor (Link), request it, release the two actor links.
+- Magic lesson: the HUD's magic is a component of Link's actor (`0x944e50(actor)`, vtable main+0x4b4dfc0, shown value
+  at +0x1bbc, busy counter at +0x1b90, refill `0x2e80f80(component)`); the data-store pair (hashes 0x39e8a20d max,
+  0xcbca2f4d current) alone does not move the meter. The pair read as "wallet" with `0xa676a0/0xa67c30` is rupees.

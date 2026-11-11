@@ -180,6 +180,97 @@ static void cheats_world(void)
     }
 }
 
+/* ---- teleport (Hookshot's oot_teleport, GPL-3.0) ----------------------- */
+
+#define FN_BOOL2        0x20d9c0ull    /* (gd, u8 *out, hash) -> found */
+#define FN_MAKE_ARG     0xd79f10ull    /* (arg buffer) */
+#define FN_REQUEST      0xd7a820ull    /* (event manager, arg) */
+#define FN_SET_LINK     0x2bc440ull    /* (arg + 0x1950, actor, 0) */
+#define FN_REL_LINK     0x20b6f0ull    /* (link) */
+#define LINK_VTABLE     0x4974b20ull
+#define H_CHILD         0xcea220d3u
+#define ARG_SIZE        0x1b20
+
+typedef void (*FnArg)(void *);
+typedef u64 (*FnReq)(void *, void *);
+typedef void (*FnSetLink)(void *, u64, long);
+typedef void (*FnRelLink)(void *);
+
+volatile int g_tp_req;          /* 0 none, else destination index + 1 */
+static u64 g_tp_last_ms;
+static u8 g_tp_arg[ARG_SIZE + 0x100] __attribute__((aligned(16)));
+static char g_tp_str[3][128];          /* the event reads these after the request returns */
+
+static int cpy(char *d, const char *s, int cap)
+{
+    int n = 0;
+    while (s[n] && n + 1 < cap) { d[n] = s[n]; n++; }
+    d[n] = 0;
+    return s[n] == 0;
+}
+
+/* One argument of the request: entries of 200 bytes at arg+8 (type, name buffer, capacity, value). */
+static int ev_arg(u8 *arg, const char *name, u32 type, u64 value)
+{
+    u32 capacity = *(u32 *)arg, count = *(u32 *)(arg + 16);
+    if (count >= capacity) return 0;
+    u8 *entry = (u8 *)*(u64 *)(arg + 8) + (u64)count * 200;
+    char *nbuf = (char *)*(u64 *)(entry + 8);
+    u32 ncap = *(u32 *)(entry + 16);
+    if (!nbuf || !cpy(nbuf, name, (int)ncap)) return 0;
+    if (type == 4) *(entry + 152) = (u8)(value & 1);
+    else *(u64 *)(entry + 152) = value;
+    *(u32 *)entry = type;
+    *(u32 *)(arg + 16) = count + 1;
+    return 1;
+}
+
+static void do_teleport(u64 link_actor, int idx)
+{
+    u64 b = g_base;
+    if (idx < 0 || idx >= TP_COUNT) return;
+    u64 now = now_ms();
+    if (g_tp_last_ms && now - g_tp_last_ms < 8000) { dbg("[wayfarer] teleport ignored: a request is still in progress\n"); return; }
+    u64 gh = *(u64 *)(b + OFF_GD_HOLDER), eh = *(u64 *)(b + OFF_EV_HOLDER);
+    void *gd = gh ? *(void **)gh : 0, *em = eh ? *(void **)eh : 0;
+    if (!gd || !em) { dbg("[wayfarer] teleport unavailable: managers missing\n"); return; }
+    if (((FnEvent)(b + FN_EVENT))(em, 0)) { dbg("[wayfarer] teleport waits: an event is playing\n"); return; }
+    u8 loading = 0;
+    if (((FnBoolGet)(b + FN_BOOL2))(gd, &loading, H_LOADING) && loading) { dbg("[wayfarer] teleport ignored: a map is loading\n"); return; }
+    u64 child_word = 1;
+    if (!((FnBoolGet)(b + FN_BOOL2))(gd, (u8 *)&child_word, H_CHILD)) child_word = 1;
+    int child = (child_word & 1) != 0;
+
+    int base_i = idx * 6 + (child ? 0 : 3);
+    const char *banc = nth(tp_dest, base_i), *start = nth(tp_dest, base_i + 1), *boot = nth(tp_dest, base_i + 2);
+    if (!*banc) { dbg("[wayfarer] teleport: that place does not exist for this age\n"); return; }
+    if (!cpy(g_tp_str[0], banc, 128) || !cpy(g_tp_str[1], start, 128) || !cpy(g_tp_str[2], boot, 128)) return;
+
+    u8 *arg = g_tp_arg;
+    ((FnArg)(b + FN_MAKE_ARG))(arg);
+    int ok = 1;
+    {
+        char *buf = (char *)*(u64 *)(arg + 6800);
+        u32 cap = *(u32 *)(arg + 6808);
+        if (!buf || !cpy(buf, "Dm_SY_BancChangeGo", (int)cap)) ok = 0;
+    }
+    ok = ok && ev_arg(arg, "NextBanc", 1, (u64)g_tp_str[0]);
+    ok = ok && ev_arg(arg, "NextStartPos", 1, (u64)g_tp_str[1]);
+    ok = ok && ev_arg(arg, "BootEventName", 1, (u64)g_tp_str[2]);
+    ok = ok && ev_arg(arg, "IsCheckAir", 4, 0);
+    if (ok) ((FnSetLink)(b + FN_SET_LINK))(arg + 0x1950, link_actor, 0);
+    u64 result = 0;
+    if (ok) result = ((FnReq)(b + FN_REQUEST))(em, arg);
+    for (int i = 0; i < 2; i++) {
+        u8 *l = arg + (i ? 0x1950 : 0x1968);
+        *(u64 *)l = b + LINK_VTABLE;
+        ((FnRelLink)(b + FN_REL_LINK))(l);
+    }
+    g_tp_last_ms = now;
+    dbgx(ok ? "teleport requested, destination" : "teleport request could not be built, destination", (u64)idx);
+    dbgx("teleport request result", result);
+}
+
 /* Called from the player actor's update (owner = its owner object). */
 void wf_actor_pre(void *owner)
 {
@@ -209,6 +300,11 @@ void wf_actor_pre(void *owner)
         }
     } else {
         *life_slot = 0;
+    }
+
+    if (g_tp_req) {
+        int req = __atomic_exchange_n(&g_tp_req, 0, __ATOMIC_SEQ_CST);
+        if (req) do_teleport(a, req - 1);
     }
 
     if (!(g_cheat[1] | g_cheat[2] | g_cheat[3])) return;
