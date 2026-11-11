@@ -102,24 +102,25 @@ static int get_program_id(u64 *out)
 #define ROWS 5
 /* No static pointer tables anywhere: the module has no relocations, so any
  * absolute address stored in data would be wrong at runtime. */
-static const char *row_label(int i)
-{
-    if (i == 0) return "God Mode";
-    if (i == 1) return "Infinite Rupees";
-    if (i == 2) return "Infinite Items";
-    if (i == 3) return "Infinite Magic";
-    return "Teleport";
-}
+/* Strings live in one blob and are found by walking it: a chain of ifs can be
+ * compiled into a table of pointers, which would need relocations. */
+static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic\0Teleport";
+static const char descs_blob[] =
+    "Hearts stay full; max is never raised\0"
+    "Wallet tops up to its current size\0"
+    "Ammo refills to your current limits\0"
+    "Magic refills to the current limit\0"
+    "Jump to key places (coming soon)";
 
-static const char *row_desc(int i)
+static const char *nth(const char *blob, int i)
 {
-    if (i == 0) return "Hearts stay full; max is never raised";
-    if (i == 1) return "Wallet tops up to its current size";
-    if (i == 2) return "Ammo refills to your current limits";
-    if (i == 3) return "Magic refills to the current limit";
-    return "Jump to key places (coming soon)";
+    while (i-- > 0) while (*blob++) {}
+    return blob;
 }
+#define row_label(i) nth(labels_blob, (i))
+#define row_desc(i) nth(descs_blob, (i))
 
+static volatile int g_gen;       /* bumped whenever what the menu shows changes */
 static volatile int g_open;      /* menu visible */
 static volatile int g_sel;       /* selected row */
 static volatile int g_dlg;       /* warning dialog visible */
@@ -130,7 +131,14 @@ static volatile int g_cheat[4];  /* God, Rupees, Items, Magic (stage 3 will read
 enum { B_A = 0, B_B = 1, B_R3 = 5, B_LEFT = 12, B_UP = 13, B_RIGHT = 14, B_DOWN = 15 };
 #define BIT(n) (1ull << (n))
 
+static void menu_input_inner(u64 e);
 static void menu_input(u64 e)
+{
+    menu_input_inner(e);
+    g_gen++;
+}
+
+static void menu_input_inner(u64 e)
 {
     if (e & BIT(B_R3)) {
         g_open = !g_open;
@@ -542,7 +550,7 @@ static void draw_menu(void *queue, void *tex, void *win)
     }
     int w = PW * S, h = PH * S;
     long stride = ((long)w * 4 + 0x3f) & ~0x3fL;
-    int region[6] = {crop[0] + 16 * S, crop[1] + (crop[3] - h) / 2, 0, w, h, 1};
+    int region[6] = {crop[0] + (crop[2] - w) / 2, crop[1] + (crop[3] - h) / 2, 0, w, h, 1};
     u64 buf = g_gpu + BUF_OFF;
 
 #if WF_READBACK
@@ -562,15 +570,21 @@ static void draw_menu(void *queue, void *tex, void *win)
     n_mpInval(g_pool, BUF_OFF, (u64)stride * h);
 
 #endif
-    /* 2: paint the panel over them, 3: copy back. */
-    g_px = g_cpu + BUF_OFF;
-    g_pitch = (int)stride;
-    g_S = S;
-    g_wpx = w;
-    g_hpx = h;
-    paint_panel();
-    n_mpFlush(g_pool, BUF_OFF, (u64)stride * h);
+    /* 2: paint the panel into the buffer, but only when it changed: the GPU reads
+     * this buffer every frame and nothing synchronises with it. */
+    static int painted = -1;
+    if (painted != g_gen) {
+        painted = g_gen;
+        g_px = g_cpu + BUF_OFF;
+        g_pitch = (int)stride;
+        g_S = S;
+        g_wpx = w;
+        g_hpx = h;
+        paint_panel();
+        n_mpFlush(g_pool, BUF_OFF, (u64)stride * h);
+    }
 
+    /* 3: copy it onto the screen. */
     rec_begin(1);
     n_cbStride(g_cb[1], stride);
     n_cbB2T(g_cb[1], buf, tex, 0, region, 0);
