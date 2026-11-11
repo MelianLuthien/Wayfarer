@@ -21,10 +21,13 @@
 #define FN_MAGIC_MAX    0xa676a0ull    /* (pm) */
 #define FN_MAGIC_CUR    0xa67c30ull    /* (pm, 0) */
 #define FN_AGE          0x4b6db0ull    /* () -> nonzero while Link is a child */
+#define FN_MAGIC_COMP   0x944e50ull    /* (link actor) -> component that holds the shown magic */
+#define FN_MAGIC_FILL   0x2e80f80ull   /* (component) */
+#define MAGIC_COMP_VT   0x4b4dfc0ull   /* vtable of that component */
 #define POUCH_CTX       0x3bc0ull      /* added to the pouch manager to get the data context */
-#define H_WALLET_MAX    0x39e8a20du
-#define H_RUPEES        0xcbca2f4du
-#define H_MAGIC         0xc995bbb8u
+#define H_MAGIC_MAX     0x39e8a20du   /* the meter: max and current, through the data store */
+#define H_MAGIC_CUR     0xcbca2f4du
+#define H_MAGIC         0xc995bbb8u   /* the wallet current value (kept under its old name) */
 #define H_LOADING       0xef2b60c2u
 
 typedef int (*FnGet)(void *, int *, void *, u32);
@@ -36,6 +39,8 @@ typedef void (*FnAdd)(void *, const char **, int, int, int, int, int, int, int);
 typedef int (*FnMagicMax)(void *);
 typedef int (*FnMagicCur)(void *, int);
 typedef int (*FnAge)(void);
+typedef u64 (*FnComp)(u64);
+typedef void (*FnMagicFill)(u64);
 
 /* Pouch contents. 0-5 are refilled; 6 bow, 7-9 bomb bags, 10 slingshot only show that a container is owned. */
 static const char item_names[] =
@@ -65,6 +70,7 @@ static void trace(const char *label, int id, u64 v)
     dbgx(label, v);
 }
 
+static volatile u64 g_link_a;   /* Link's actor object, set every update */
 static u32 g_owned[2];      /* items seen in the pouch, per age: they keep being refilled at zero */
 static u64 g_last_pm;
 static u32 g_ticks;
@@ -126,27 +132,46 @@ static void cheats_world(void)
     if (!lok || loading) return;
 
     void *ctx = (u8 *)pm + POUCH_CTX;
-    if (g_cheat[3]) {   /* hash-based block: this is the magic meter (max 240 in the log) */
+    if (g_cheat[3]) {   /* magic: the pair read through the data-store hashes is (max, current) of the meter */
         int max = 0, cur = 0;
         FnGet get = (FnGet)(b + FN_GET);
-        int ok1 = get(gd, &max, ctx, H_WALLET_MAX);
-        int ok2 = get(gd, &cur, ctx, H_RUPEES);
-        trace("rupee max", 3, (u64)(long)max);
-        trace("rupee cur", 4, (u64)(long)cur);
-        trace("rupee get ok", 5, (u64)(ok1 * 2 + ok2));
-        if (ok1 && max >= 1 && max <= 0x1e0 && ok2 && cur >= 0 && cur < max) {
-            ((FnSet)(b + FN_SET))(gd, max, ctx, H_RUPEES);
-            trace("rupee set to", 6, (u64)(long)max);
+        int ok1 = get(gd, &max, ctx, H_MAGIC_MAX);
+        int ok2 = get(gd, &cur, ctx, H_MAGIC_CUR);
+        trace("magic max", 3, (u64)(long)max);
+        trace("magic cur", 4, (u64)(long)cur);
+        if (ok1 && max >= 1 && max <= 0x1e0 && ok2 && cur >= 0) {
+            /* What the HUD draws lives in a component of Link's actor; refill that first. */
+            u64 la = g_link_a;
+            if (la) {
+                u64 comp = ((FnComp)(b + FN_MAGIC_COMP))(la);
+                MemInfo mi;
+                if (comp && query_memory(comp, &mi) == 0 && (mi.perm & 1) && comp >= mi.base &&
+                    ((mi.base + mi.size - comp) >> 6) >= 0x6f && *(u64 *)comp == b + MAGIC_COMP_VT &&
+                    *(u64 *)(comp + 0x18) == la) {
+                    int shown = *(int *)(comp + 0x1bbc), busy = *(int *)(comp + 0x1b90);
+                    trace("magic shown", 11, (u64)(long)shown);
+                    if (shown >= 0 && shown < max && busy <= 0) {
+                        ((FnMagicFill)(b + FN_MAGIC_FILL))(comp);
+                        trace("magic fill called", 12, 1);
+                    }
+                } else {
+                    trace("magic component not found", 13, comp);
+                }
+            }
+            if (cur < max) {
+                ((FnSet)(b + FN_SET))(gd, max, ctx, H_MAGIC_CUR);
+                trace("magic set to", 9, (u64)(long)max);
+            }
         }
     }
     if (g_cheat[1]) {   /* function-based block: this is the wallet (max 500 in the log) */
         int max = ((FnMagicMax)(b + FN_MAGIC_MAX))(pm);
         int cur = ((FnMagicCur)(b + FN_MAGIC_CUR))(pm, 0);
-        trace("magic max", 7, (u64)(long)max);
-        trace("magic cur", 8, (u64)(long)cur);
+        trace("wallet max", 7, (u64)(long)max);
+        trace("wallet cur", 8, (u64)(long)cur);
         if (max >= 1 && max <= 9999 && cur >= 0 && cur < max) {
             ((FnSet)(b + FN_SET))(gd, max, ctx, H_MAGIC);
-            trace("magic set to", 9, (u64)(long)max);
+            trace("wallet set to", 14, (u64)(long)max);
         }
     }
     if (g_cheat[2]) {
@@ -170,6 +195,7 @@ void wf_actor_pre(void *owner)
         name[0x5c] != 'e' || name[0x5d] != 'r' || name[0x5e] != 0) return;
 
     g_link_tick = now_ms();
+    g_link_a = a;
 
     /* God Mode: Link's life never drops, and is topped up to his current maximum. */
     volatile u64 *life_slot = (volatile u64 *)(b + BRIDGE_OFFSET + 0x70);
@@ -186,7 +212,7 @@ void wf_actor_pre(void *owner)
     }
 
     if (!(g_cheat[1] | g_cheat[2] | g_cheat[3])) return;
-    if (++g_ticks % 10) return;   /* a few times a second */
+    if (++g_ticks % (g_cheat[3] ? 3 : 10)) return;   /* the magic meter needs a quicker rhythm */
     cheats_world();
 }
 
