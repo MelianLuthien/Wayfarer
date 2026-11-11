@@ -46,6 +46,7 @@ def main():
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "packicons.py")], check=True)
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "genfont.py")], check=True)
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "packframe.py")], check=True)
+    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "packlogo.py")], check=True)
 
     cmd = [
         args.zig, "cc", "-target", "aarch64-freestanding", "-mcpu=cortex_a57", "-O2",

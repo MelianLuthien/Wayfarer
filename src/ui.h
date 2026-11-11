@@ -338,7 +338,45 @@ static void draw_icon(int lx, int ly, int sz, int idx)
     }
 }
 
+/* The owner's logo, drawn into a box lw x lh logical (its blob is LOGO_W x LOGO_H); area average. */
+static void draw_logo(int lx, int ly, int lh)
+{
+#if LOGO_W > 0
+    int dh = lh * g_S, dw = dh * LOGO_W / LOGO_H;
+    for (int y = 0; y < dh; y++)
+        for (int x = 0; x < dw; x++) {
+            int x0 = x * LOGO_W / dw, x1 = (x + 1) * LOGO_W / dw, y0 = y * LOGO_H / dh, y1 = (y + 1) * LOGO_H / dh;
+            if (x1 <= x0) x1 = x0 + 1;
+            if (y1 <= y0) y1 = y0 + 1;
+            long sa = 0, sr = 0, sg = 0, sb = 0, n = 0;
+            for (int yy = y0; yy < y1; yy++)
+                for (int xx = x0; xx < x1; xx++) {
+                    const u8 *q = wf_logo_blob + ((long)yy * LOGO_W + xx) * 4;
+                    sa += q[3]; n++;
+                    sr += q[0] * (long)q[3]; sg += q[1] * (long)q[3]; sb += q[2] * (long)q[3];
+                }
+            if (!sa) continue;
+            blend(lx * g_S + x, ly * g_S + y, (int)(sr / sa), (int)(sg / sa), (int)(sb / sa), (int)(sa / n));
+        }
+#else
+    (void)lx; (void)ly; (void)lh;
+#endif
+}
+
 /* ---- widgets ------------------------------------------------------------- */
+
+#define AMB0 0xf9c35a   /* glossy amber, light end */
+#define AMB1 0xd9801c   /* glossy amber, dark end */
+#define EDGE 0x3a2412   /* dark brown outline */
+
+/* A glossy amber plate with a dark outline and a bright band across the top half. */
+static void plate(float x, float y, float w, float h, float rad)
+{
+    rr(x, y + 0.8f, w, h, rad, 0, 0, 0, 70);
+    rr(x, y, w, h, rad, 0, AMB0, AMB1, 255);
+    rr(x + 1.5f, y + 1.2f, w - 3.0f, h * 0.42f, rad * 0.6f, 0, 0xffffff, 0xffe9a8, 90);
+    rr(x, y, w, h, rad, 1.4f, EDGE, EDGE, 255);
+}
 
 /* The highlight on the selected row. */
 static void sel_box(float x, float y, float w, float h)
@@ -350,11 +388,18 @@ static void sel_box(float x, float y, float w, float h)
 /* A brass knob in a carved slot, 44 x 18. */
 static void slider(int lx, int ly, int on)
 {
-    rr((float)lx, (float)ly, 44, 18, 9, 0, on ? 0x25401c : 0x2a1d12, on ? 0x3a5f2a : 0x3f2e1c, 255);
-    rr((float)lx, (float)ly, 44, 18, 9, 1.5f, BRASS, BRASS, 255);
-    float kx = (float)lx + (on ? 34.0f : 10.0f), ky = (float)ly + 9.0f;
-    disc(kx, ky + 1.0f, 7, 0, 0, 0, 90);
-    disc(kx, ky, 7, 0xfff1b8, GOLDC, 0x8a6a22, 255);
+    float fx = (float)lx, fy = (float)ly;
+    rr(fx, fy + 0.8f, 44, 18, 9, 0, 0xfff4d6, 0xfff4d6, 90);                  /* light edge under the slot */
+    rr(fx, fy, 44, 18, 9, 0, 0x24170c, 0x4a3320, 255);                        /* dark carved track */
+    if (on) {
+        rr(fx + 2, fy + 2, 40, 14, 7, 0, AMB0, AMB1, 255);                    /* amber fill */
+        rr(fx + 3.5f, fy + 2.8f, 37, 5, 2.5f, 0, 0xffffff, 0xffe9a8, 90);     /* gloss */
+    }
+    rr(fx, fy, 44, 18, 9, 1.4f, EDGE, EDGE, 255);
+    float kx = fx + (on ? 34.0f : 10.0f), ky = fy + 9.0f;
+    disc(kx, ky + 1.0f, 7.2f, 0, 0, 0, 100);
+    disc(kx, ky, 7.2f, 0xffe9b0, 0xc98a3a, 0x6b3f16, 255);                    /* wooden knob */
+    disc(kx, ky, 4.4f, 0xe9b060, 0xb5702a, 0x8a5020, 255);
 }
 
 /* "‹ 2x ›", right-aligned at logical rx. */
@@ -374,8 +419,8 @@ static int hint(int x, const char *keys, const char *label)
 {
     for (; *keys; keys++) {
         char s[2] = {*keys, 0};
-        rr((float)x, 277.5f, 17, 17, 8.5f, 0, WOOD, WOOD, 255);
-        text(3, x + (17 - text_w(3, s)) / 2, 572, s, 0xe6cd82, 255);
+        plate((float)x, 277.5f, 17, 17, 8.5f);
+        text(3, x + (17 - text_w(3, s)) / 2, 572, s, EDGE, 255);
         x += 21;
     }
     text(1, x, 572, label, FOOTC, 255);
@@ -389,20 +434,23 @@ static void paint_panel(void)
     paint_bg();
 
     g_track = 4;
+#if LOGO_W > 0
+    draw_logo(46, 35, 21);
+#else
     text(2, 48, 95, "WAYFARER", WOOD, 255);
+#endif
     g_track = 0;
     text_r(3, 492, 94, WF_VERSION, 0x7a6234);
 
     for (int t = 0; t < TABS; t++) {
         float x = 46.0f + (float)t * 113.5f;
         if (t == g_tab) {
-            rr(x, 58, 107.5f, 32, 16, 0, 0x5d432a, 0x3f2e1c, 255);
-            rr(x, 58, 107.5f, 32, 16, 2, GOLDC, GOLDC, 255);
+            plate(x, 58, 107.5f, 32, 16);
         } else {
             rr(x, 58, 107.5f, 32, 16, 0, WOOD, WOOD, 41);
         }
         draw_icon((int)(x + 4.5f), 62, 24, ICON_TAB_PLAYER + t);
-        text(0, (int)(x + 35.0f), 148, nth(tabs_blob, t), t == g_tab ? CREAMC : DESC, 255);
+        text(0, (int)(x + 35.0f), 148, nth(tabs_blob, t), t == g_tab ? EDGE : DESC, 255);
     }
     fill(46, 95, 448, 1, BRASS, 204);
 

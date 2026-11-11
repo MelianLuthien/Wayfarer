@@ -32,8 +32,9 @@ typedef unsigned int u32;
 typedef unsigned char u8;
 #include "font.h"
 #include "panel.h"
+#include "logo.h"
 #include "icons.h"
-static const u8 *wf_font_blob, *wf_panel_blob, *wf_icon_blob;
+static const u8 *wf_font_blob, *wf_panel_blob, *wf_icon_blob, *wf_logo_blob;
 #define WF_VERSION "%(version)s"
 %(state)s
 #include "ui.h"
@@ -69,6 +70,7 @@ int main(int argc, char **argv)
     wf_font_blob = slurp(art, "fonts.bin");
     wf_panel_blob = slurp(art, "panel.bin");
     wf_icon_blob = slurp(art, "icons64.bin");
+    wf_logo_blob = slurp(art, "logo.bin");
     g_wpx = PW * g_S;
     g_hpx = PH * g_S;
     g_pitch = g_wpx * 4;

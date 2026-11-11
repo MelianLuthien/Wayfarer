@@ -11,6 +11,11 @@ __asm__(
     ".global wf_panel_blob\n"
     "wf_panel_blob:\n"
     ".incbin \"panel.bin\"\n"
+    ".balign 16\n"
+    ".global wf_logo_blob\n"
+    "wf_logo_blob:\n"
+    ".incbin \"logo.bin\"\n"
     ".previous\n");
 extern const u8 wf_font_blob[];
 extern const u8 wf_panel_blob[];
+extern const u8 wf_logo_blob[];

@@ -13,6 +13,7 @@ typedef unsigned char u8;
 
 #include "font.h"
 #include "panel.h"
+#include "logo.h"
 #include "icons.h"
 #include "iconblob.h"
 #include "blobs.h"
@@ -104,7 +105,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.12"
+#define WF_VERSION "v261111.13"
 
 static u64 now_ms(void)
 {
