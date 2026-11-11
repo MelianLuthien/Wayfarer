@@ -105,3 +105,17 @@ Teleport logic derives from Hookshot (GPL-3.0). Wayfarer is therefore GPL-3.0.
 - Input: the npad hooks feed button edges to the menu (R3 toggles, D-pad moves, A toggles, B closes) and zero
   buttons and sticks in the returned samples while the menu is open. The world is not paused yet.
 - Formats handled: 37 and 56 (RGBA), 55 (BGRA). Anything else logs "unsupported" and draws nothing.
+
+## Stage 3: how the cheats work (decoded from rc1, untested until run)
+
+- Per-frame hook on the player actor update (IPS 0x49D9C0, slot 0x848). Link is recognised by walking
+  owner+0x18 (vtable main+0x4B25E18) -> +0x270 -> +0x320 (back pointer, vtable main+0x4B4C460 at -0x1D50) and the
+  name "Player" at (component-0x1D40)+0x58. Life word = [owner+0x1C10]+8, max = [owner+0x1C18]+8 (quarter hearts, <= 0x50).
+- God Mode: refill life to max each frame, plus the life CAS trampoline (IPS 0x49DDF8, slot 0x870 = address of the life
+  word) which never lets a write lower it.
+- Everything else every ~30 frames, only when no event is playing and Sequence_IsLoadingBanc is false:
+  rupees = game-data getter 0x17B3B0 / setter 0x9B39E0 with ctx = pouch manager + 0x3BC0, hashes wallet max 0x39E8A20D,
+  rupees 0xCBCA2F4D; magic = 0xA676A0 (max) / 0xA67C30 (current), setter hash 0xC995BBB8;
+  items = 0x5963E0 (count), 0x595CF0 (capacity of the current pouch), 0x110D570 (add) for Arrow, Bomb, DekuSeed,
+  DekuNut, DekuStick, Bombchu (age-filtered; bow/bomb bag/slingshot ownership decides arrows/bombs/seeds).
+- rc1 data tables use R_AARCH64_RELATIVE relocations (a real .rela.dyn); Wayfarer has none, so it avoids pointer tables.

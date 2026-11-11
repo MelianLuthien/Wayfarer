@@ -223,6 +223,8 @@ __asm__(".section .text.thunks,\"ax\"\n" THUNK(0, 0) THUNK(1, 8) THUNK(2, 16) TH
 
 extern char wf_thunk0[], wf_thunk1[], wf_thunk2[], wf_thunk3[], wf_thunk4[];
 
+#include "cheats.h"
+
 /* ---- NVN (graphics API) ----------------------------------------------- */
 
 typedef void *(*GetProc)(void *, const char *);
@@ -694,8 +696,10 @@ void wf_init(void)
     t[3] = (u64)wf_thunk3;   /* 0x818 */
     t[4] = (u64)wf_thunk4;   /* 0x820 */
     t[5] = (u64)wf_nvn_load; /* 0x828 */
+    wf_actor_orig = base + 0x3c4631c;
+    t[9] = (u64)wf_actor_thunk; /* 0x848 */
     __asm__ volatile("dmb ish" ::: "memory");
-    dbg("[wayfarer] stage 2 loaded; press R3 for the menu\n");
+    dbg("[wayfarer] stage 3 loaded; press R3 for the menu\n");
 }
 
 /* ---- module header: entry stub, MOD0, dynamic section ------------------ */

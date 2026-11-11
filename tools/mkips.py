@@ -49,6 +49,42 @@ def trampoline(pc, slot, fallback):
     return code
 
 
+ACTOR_SITE = 0x49D9C0     # IPS offset: the player actor update function's first instruction (pacibsp)
+ACTOR_BODY = 0x49D8C4     # memory offset of its second instruction
+ACTOR_SLOT = 0x848
+LIFE_SITE = 0x49DDF8      # IPS offset: `cas w11, w12, [x13]` that writes Link's life
+LIFE_BACK = 0x49DCFC      # memory offset of the instruction after it
+LIFE_SLOT = 0x870         # data slot: address of Link's life word while God Mode is on, else 0
+# memory offset (from main) of the actor trampoline's fallback (pacibsp; b body)
+ACTOR_FALLBACK = CAVE + 7 * 20 + 16
+
+
+def actor_trampoline(pc):
+    code = adrp(pc, 16, BRIDGE)
+    code += struct.pack("<I", 0xF9400000 | ((ACTOR_SLOT // 8) << 10) | (16 << 5) | 16)
+    code += struct.pack("<I", 0xB4000000 | (2 << 5) | 16)
+    code += struct.pack("<I", 0xD61F0200)
+    code += struct.pack("<I", 0xD503237F)          # pacibsp (the instruction replaced at the site)
+    code += b(pc + 20, ACTOR_BODY)
+    return code
+
+
+def life_trampoline(pc):
+    """If the slot holds this CAS's address, never let the life word go down."""
+    code = struct.pack("<I", 0xA9BF47F0)           # stp x16, x17, [sp, #-16]!
+    code += adrp(pc + 4, 16, BRIDGE)
+    code += struct.pack("<I", 0xF9400000 | ((LIFE_SLOT // 8) << 10) | (16 << 5) | 16)
+    code += struct.pack("<I", 0xEB0D021F)          # cmp x16, x13
+    code += struct.pack("<I", 0x54000081)          # b.ne +16
+    code += struct.pack("<I", 0x7100017F)          # cmp w11, #0
+    code += struct.pack("<I", 0x7A4CC164)          # ccmp w11, w12, #4, gt
+    code += struct.pack("<I", 0x1A8CC16C)          # csel w12, w11, w12, gt
+    code += struct.pack("<I", 0xA8C147F0)          # ldp x16, x17, [sp], #16
+    code += struct.pack("<I", 0x88AB7DAC)          # cas w11, w12, [x13]
+    code += b(pc + 40, LIFE_BACK)
+    return code
+
+
 def records():
     recs = []
     pc = CAVE
@@ -57,6 +93,14 @@ def records():
         recs.append((site, b(site_m, pc, link=True)))
         recs.append((pc + NSO_HDR, trampoline(pc, slot, orig_m)))
         pc += 20
+    assert pc + 16 == ACTOR_FALLBACK
+    recs.append((ACTOR_SITE, b(ACTOR_SITE - NSO_HDR, pc)))
+    recs.append((pc + NSO_HDR, actor_trampoline(pc)))
+    pc += 24
+    recs.append((LIFE_SITE, b(LIFE_SITE - NSO_HDR, pc)))
+    recs.append((pc + NSO_HDR, life_trampoline(pc)))
+    pc += 44
+    assert pc < 0x3C46500
     return recs
 
 
