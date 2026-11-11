@@ -93,3 +93,15 @@ module object offset pointing at reserved bss (rtld writes there). Lichii's log 
 ## Licence
 
 Teleport logic derives from Hookshot (GPL-3.0). Wayfarer is therefore GPL-3.0.
+
+## Stage 2 implementation (untested until the user runs it)
+
+- Loader hook (slot 0x828) runs the game's NVN loader, resolves 31 NVN procs, checks that the game's four
+  function slots (`main+0x4C8DDE8+{0,0x20,0xA8,0xB0}`, each a pointer to a slot) still hold the resolved procs,
+  then swaps in wrappers for present, window-builder-set-textures, window-initialize and window-finalize.
+- The pool, syncs and command buffers are created lazily the first time the menu draws.
+- On a present with the menu open: copy the panel rectangle of the swapchain texture to a pool buffer, wait for
+  the GPU, blend the panel on the CPU (bilinear-scaled Aileron font, CC0), copy back, then present.
+- Input: the npad hooks feed button edges to the menu (R3 toggles, D-pad moves, A toggles, B closes) and zero
+  buttons and sticks in the returned samples while the menu is open. The world is not paused yet.
+- Formats handled: 37 and 56 (RGBA), 55 (BGRA). Anything else logs "unsupported" and draws nothing.

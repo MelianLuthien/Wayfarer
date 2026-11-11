@@ -22,6 +22,9 @@ NPAD_HOOKS = [
     (0x3469650, 0x810, 0x3C42920),
     (0x346976C, 0x818, 0x3C42900),
     (0x3469798, 0x820, 0x3C42930),
+    # NVN loader (resolves the graphics API); the module wraps present from here.
+    (0x346C0F0, 0x828, 0x129E390),
+    (0x346C1D4, 0x828, 0x129E390),
 ]
 
 

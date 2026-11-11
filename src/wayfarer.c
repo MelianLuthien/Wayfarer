@@ -1,6 +1,7 @@
 /*
- * Wayfarer: stage 1. Loads as a Switch ExeFS module (subsdk8), finds the game's
- * `main`, arms five controller hooks and logs a line when R3 is pressed.
+ * Wayfarer: stage 2. Loads as a Switch ExeFS module (subsdk8), finds the game's
+ * `main`, hooks the controller and the graphics present call, and shows a basic
+ * cheat menu on R3. The cheats themselves are not wired up yet (stage 3).
  *
  * The hook plumbing (IPS trampolines + bridge table in main's bss) follows the
  * layout reverse-engineered from the Hyrule Cheat Menu rc1; see docs/RESEARCH.md.
@@ -10,11 +11,30 @@ typedef unsigned long long u64;
 typedef unsigned int u32;
 typedef unsigned char u8;
 
+#include "font.h"
+
 #define TITLE_ID        0x0400486024DEC000ull
 #define MAIN_RX_SIZE    0x3c47000ull   /* size of main's executable region */
 #define MAIN_MOD0_WORD  0x3c4705cu     /* word at main+4: offset of MOD0 */
 #define BRIDGE_OFFSET   0x4E9F800ull   /* bridge table inside main's bss */
 #define BRIDGE_BYTES    0x78ull
+#define NVN_LOADER      0x129E290ull   /* main: fn(device, getProcAddress) */
+#define NVN_TABLE       0x4c8dde8ull   /* main: pointers to the game's NVN function slots */
+
+void *memset(void *d, int c, unsigned long n)
+{
+    u8 *p = d;
+    while (n--) *p++ = (u8)c;
+    return d;
+}
+
+void *memcpy(void *d, const void *s, unsigned long n)
+{
+    u8 *p = d;
+    const u8 *q = s;
+    while (n--) *p++ = *q++;
+    return d;
+}
 
 /* ---- supervisor calls ------------------------------------------------- */
 
@@ -28,6 +48,22 @@ static void dbg(const char *s)
                      : "+r"(x0), "+r"(x1)
                      :
                      : "x2", "x3", "x4", "x5", "x6", "x7", "memory");
+}
+
+static void dbgx(const char *label, u64 v)
+{
+    char b[96];
+    int n = 0;
+    b[n++] = '[';
+    for (const char *p = "wayfarer] "; *p; p++) b[n++] = *p;
+    for (; *label && n < 70; label++) b[n++] = *label;
+    b[n++] = ' ';
+    b[n++] = '0';
+    b[n++] = 'x';
+    for (int i = 60; i >= 0; i -= 4) b[n++] = "0123456789abcdef"[(v >> i) & 15];
+    b[n++] = '\n';
+    b[n] = 0;
+    dbg(b);
 }
 
 typedef struct {
@@ -61,30 +97,97 @@ static int get_program_id(u64 *out)
     return (int)x0;
 }
 
-/* ---- state ------------------------------------------------------------ */
+/* ---- menu state ------------------------------------------------------- */
+
+#define ROWS 5
+static const char *const row_label[ROWS] = {"God Mode", "Infinite Rupees", "Infinite Items", "Infinite Magic", "Teleport"};
+static const char *const row_desc[ROWS] = {
+    "Hearts stay full; max is never raised",
+    "Wallet tops up to its current size",
+    "Ammo refills to your current limits",
+    "Magic refills to the current limit",
+    "Jump to key places (coming soon)",
+};
+
+static volatile int g_open;      /* menu visible */
+static volatile int g_sel;       /* selected row */
+static volatile int g_dlg;       /* warning dialog visible */
+static volatile int g_warned;    /* warning accepted this session */
+static volatile int g_pending;   /* row waiting for the warning */
+static volatile int g_cheat[4];  /* God, Rupees, Items, Magic (stage 3 will read these) */
+
+enum { B_A = 0, B_B = 1, B_R3 = 5, B_LEFT = 12, B_UP = 13, B_RIGHT = 14, B_DOWN = 15 };
+#define BIT(n) (1ull << (n))
+
+static void menu_input(u64 e)
+{
+    if (e & BIT(B_R3)) {
+        g_open = !g_open;
+        g_dlg = 0;
+        if (g_open) dbg("[wayfarer] menu open\n"); else dbg("[wayfarer] menu closed\n");
+        return;
+    }
+    if (!g_open) return;
+    if (g_dlg) {
+        if (e & BIT(B_A)) {
+            g_warned = 1;
+            g_cheat[g_pending] = !g_cheat[g_pending];
+            g_dlg = 0;
+        } else if (e & BIT(B_B)) {
+            g_dlg = 0;
+        }
+        return;
+    }
+    if (e & BIT(B_UP)) g_sel = (g_sel + ROWS - 1) % ROWS;
+    if (e & BIT(B_DOWN)) g_sel = (g_sel + 1) % ROWS;
+    if (e & BIT(B_B)) g_open = 0;
+    if (e & BIT(B_A)) {
+        int r = g_sel;
+        if (r < 4) {
+            if (!g_warned) { g_pending = r; g_dlg = 1; }
+            else g_cheat[r] = !g_cheat[r];
+        }
+    }
+}
+
+/* ---- the controller hook ---------------------------------------------- */
 
 static u64 g_base;          /* runtime address of main */
-static u32 g_prev[5];       /* previous R3 state per hooked input function */
+static u64 g_prev[5];       /* previous buttons per hooked input function */
 
 /* Offsets (from main) of the five input functions the hooks call through to. */
 const u64 wf_npad_fn[5] = {0x3c427f0, 0x3c42810, 0x3c42820, 0x3c42800, 0x3c42830};
 
-/* ---- the hook --------------------------------------------------------- */
-
 /*
  * Replaces a call to one of the game's pad-state readers
  *   long fn(State *out, int count, const u32 *npad_id)
- * Calls the original, then looks at the newest sample for R3 (StickR, bit 5).
+ * Calls the original, feeds button edges to the menu, and hides all input from
+ * the game while the menu is open. State layout: u64 sample, u64 buttons,
+ * s32 stickL[2], s32 stickR[2], u32 attributes, stride 0x28.
  */
 long wf_npad(void *out, int count, const u32 *id, u64 fn_off, u64 idx)
 {
     long (*orig)(void *, int, const u32 *) = (long (*)(void *, int, const u32 *))(g_base + fn_off);
     long n = orig(out, count, id);
     if (n >= 1 && id && (*id == 0 || *id == 0x20)) {
-        u64 buttons = *(const u64 *)((const u8 *)out + 8);
-        u32 r3 = (u32)((buttons >> 5) & 1);
-        if (r3 && !g_prev[idx]) dbg("[wayfarer] R3 pressed\n");
-        g_prev[idx] = r3;
+        u8 *o = (u8 *)out;
+        int was_open = g_open;
+        if (*(u32 *)(o + 0x20) & 1) {   /* connected */
+            u64 b = *(u64 *)(o + 8);
+            u64 e = b & ~g_prev[idx];
+            g_prev[idx] = b;
+            if (e) menu_input(e);
+        } else {
+            g_prev[idx] = 0;
+        }
+        if (was_open || g_open) {
+            for (long i = 0; i < n; i++) {
+                u8 *s = o + i * 0x28;
+                *(u64 *)(s + 8) = 0;
+                *(u64 *)(s + 0x10) = 0;
+                *(u64 *)(s + 0x18) = 0;
+            }
+        }
     }
     return n;
 }
@@ -100,6 +203,396 @@ long wf_npad(void *out, int count, const u32 *id, u64 fn_off, u64 idx)
 __asm__(".section .text.thunks,\"ax\"\n" THUNK(0, 0) THUNK(1, 8) THUNK(2, 16) THUNK(3, 24) THUNK(4, 32) ".text\n");
 
 extern char wf_thunk0[], wf_thunk1[], wf_thunk2[], wf_thunk3[], wf_thunk4[];
+
+/* ---- NVN (graphics API) ----------------------------------------------- */
+
+typedef void *(*GetProc)(void *, const char *);
+
+static void *g_dev;
+static void (*n_present)(void *, void *, int);
+static void (*n_setTex)(void *, int, void *const *);
+static int (*n_winInit)(void *, void *);
+static void (*n_winFini)(void *);
+static void (*n_getCrop)(void *, int *);
+static int (*n_texW)(void *);
+static int (*n_texH)(void *);
+static int (*n_texFmt)(void *);
+static int (*n_texTarget)(void *);
+static int (*n_texSamples)(void *);
+static void (*n_mpbDefaults)(void *);
+static void (*n_mpbDev)(void *, void *);
+static void (*n_mpbStorage)(void *, void *, u64);
+static void (*n_mpbFlags)(void *, int);
+static int (*n_mpInit)(void *, void *);
+static u64 (*n_mpAddr)(void *);
+static void *(*n_mpMap)(void *);
+static void (*n_mpFlush)(void *, u64, u64);
+static void (*n_mpInval)(void *, u64, u64);
+static int (*n_syncInit)(void *, void *);
+static int (*n_syncWait)(void *, u64);
+static int (*n_cbInit)(void *, void *);
+static void (*n_cbAddCmd)(void *, void *, u64, u64);
+static void (*n_cbAddCtl)(void *, void *, u64);
+static void (*n_cbBegin)(void *);
+static u64 (*n_cbEnd)(void *);
+static void (*n_qSubmit)(void *, int, u64 *);
+static void (*n_cbFence)(void *, void *, int, int);
+static void (*n_cbStride)(void *, long);
+static void (*n_cbT2B)(void *, void *, void *, const int *, u64, int);
+static void (*n_cbB2T)(void *, u64, void *, void *, const int *, int);
+static void (*n_cbBarrier)(void *, int);
+
+typedef struct { const char *name; void **dst; } Proc;
+static const Proc procs[] = {
+    {"nvnQueuePresentTexture", (void **)&n_present},
+    {"nvnWindowBuilderSetTextures", (void **)&n_setTex},
+    {"nvnWindowInitialize", (void **)&n_winInit},
+    {"nvnWindowFinalize", (void **)&n_winFini},
+    {"nvnWindowGetCrop", (void **)&n_getCrop},
+    {"nvnTextureGetWidth", (void **)&n_texW},
+    {"nvnTextureGetHeight", (void **)&n_texH},
+    {"nvnTextureGetFormat", (void **)&n_texFmt},
+    {"nvnTextureGetTarget", (void **)&n_texTarget},
+    {"nvnTextureGetSamples", (void **)&n_texSamples},
+    {"nvnMemoryPoolBuilderSetDefaults", (void **)&n_mpbDefaults},
+    {"nvnMemoryPoolBuilderSetDevice", (void **)&n_mpbDev},
+    {"nvnMemoryPoolBuilderSetStorage", (void **)&n_mpbStorage},
+    {"nvnMemoryPoolBuilderSetFlags", (void **)&n_mpbFlags},
+    {"nvnMemoryPoolInitialize", (void **)&n_mpInit},
+    {"nvnMemoryPoolGetBufferAddress", (void **)&n_mpAddr},
+    {"nvnMemoryPoolMap", (void **)&n_mpMap},
+    {"nvnMemoryPoolFlushMappedRange", (void **)&n_mpFlush},
+    {"nvnMemoryPoolInvalidateMappedRange", (void **)&n_mpInval},
+    {"nvnSyncInitialize", (void **)&n_syncInit},
+    {"nvnSyncWait", (void **)&n_syncWait},
+    {"nvnCommandBufferInitialize", (void **)&n_cbInit},
+    {"nvnCommandBufferAddCommandMemory", (void **)&n_cbAddCmd},
+    {"nvnCommandBufferAddControlMemory", (void **)&n_cbAddCtl},
+    {"nvnCommandBufferBeginRecording", (void **)&n_cbBegin},
+    {"nvnCommandBufferEndRecording", (void **)&n_cbEnd},
+    {"nvnQueueSubmitCommands", (void **)&n_qSubmit},
+    {"nvnCommandBufferFenceSync", (void **)&n_cbFence},
+    {"nvnCommandBufferSetCopyRowStride", (void **)&n_cbStride},
+    {"nvnCommandBufferCopyTextureToBuffer", (void **)&n_cbT2B},
+    {"nvnCommandBufferCopyBufferToTexture", (void **)&n_cbB2T},
+    {"nvnCommandBufferBarrier", (void **)&n_cbBarrier},
+};
+#define NPROCS ((int)(sizeof(procs) / sizeof(procs[0])))
+
+/* Swapchain bookkeeping, filled by the wrapped window calls. */
+#define MAXTEX 8
+static void *g_win;
+static void *g_tex[MAXTEX];
+static int g_ntex;
+static void *g_bld;
+static void *g_bldtex[MAXTEX];
+static int g_bldn;
+
+static void wf_setTex(void *builder, int count, void *const *tex)
+{
+    n_setTex(builder, count, tex);
+    g_bld = builder;
+    g_bldn = count > MAXTEX ? MAXTEX : count;
+    for (int i = 0; i < g_bldn; i++) g_bldtex[i] = tex[i];
+}
+
+static int wf_winInit(void *win, void *builder)
+{
+    int r = n_winInit(win, builder);
+    if (builder == g_bld) {
+        g_win = win;
+        g_ntex = g_bldn;
+        for (int i = 0; i < g_ntex; i++) g_tex[i] = g_bldtex[i];
+    }
+    return r;
+}
+
+static void wf_winFini(void *win)
+{
+    if (win == g_win) { g_win = 0; g_ntex = 0; }
+    n_winFini(win);
+}
+
+/* GPU-visible scratch: command memory in the first 0x10000, then the panel pixels. */
+#define POOL_BYTES 0x800000
+#define BUF_OFF    0x10000
+static u8 g_poolmem[POOL_BYTES] __attribute__((aligned(4096)));
+static u8 g_pool[0x400] __attribute__((aligned(64)));
+static u8 g_mpb[0x100] __attribute__((aligned(64)));
+static u8 g_sync[0x100] __attribute__((aligned(64)));
+static u8 g_cb[2][0x400] __attribute__((aligned(64)));
+static u8 g_ctl[2][0x1000] __attribute__((aligned(16)));
+static int g_ready, g_fail, g_logged;
+static u8 *g_cpu;
+static u64 g_gpu;
+
+static int nvn_prepare(void)
+{
+    if (g_ready) return 1;
+    n_mpbDefaults(g_mpb);
+    n_mpbDev(g_mpb, g_dev);
+    n_mpbStorage(g_mpb, g_poolmem, POOL_BYTES);
+    n_mpbFlags(g_mpb, 0x24);               /* CPU cached | GPU cached */
+    if (!n_mpInit(g_pool, g_mpb)) { dbg("[wayfarer] pool init failed\n"); return 0; }
+    g_cpu = (u8 *)n_mpMap(g_pool);
+    if (!g_cpu) g_cpu = g_poolmem;
+    g_gpu = n_mpAddr(g_pool);
+    if (!n_syncInit(g_sync, g_dev)) { dbg("[wayfarer] sync init failed\n"); return 0; }
+    for (int i = 0; i < 2; i++)
+        if (!n_cbInit(g_cb[i], g_dev)) { dbg("[wayfarer] cmdbuf init failed\n"); return 0; }
+    g_ready = 1;
+    dbg("[wayfarer] overlay ready\n");
+    return 1;
+}
+
+static void rec_begin(int i)
+{
+    n_cbAddCmd(g_cb[i], g_pool, (u64)i * 0x1000, 0x1000);
+    n_cbAddCtl(g_cb[i], g_ctl[i], 0x1000);
+    n_cbBegin(g_cb[i]);
+}
+
+static void rec_submit(void *queue, int i)
+{
+    u64 h = n_cbEnd(g_cb[i]);
+    n_qSubmit(queue, 1, &h);
+}
+
+/* ---- software drawing into the panel buffer ---------------------------- */
+
+#define PW 330
+#define PH 236
+
+static u8 *g_px;       /* panel pixels (CPU copy) */
+static int g_pitch;    /* bytes per row */
+static int g_S;        /* integer scale */
+static int g_wpx, g_hpx;
+static int g_ri, g_bi; /* byte index of red and blue */
+
+static void blend(int x, int y, int r, int g, int b, int a)
+{
+    if (x < 0 || y < 0 || x >= g_wpx || y >= g_hpx || a <= 0) return;
+    u8 *p = g_px + y * g_pitch + x * 4;
+    int ia = 255 - a;
+    p[g_ri] = (u8)((p[g_ri] * ia + r * a) / 255);
+    p[1] = (u8)((p[1] * ia + g * a) / 255);
+    p[g_bi] = (u8)((p[g_bi] * ia + b * a) / 255);
+    p[3] = 255;
+}
+
+static void fill(int lx, int ly, int lw, int lh, int r, int g, int b, int a)
+{
+    int S = g_S;
+    for (int y = ly * S; y < (ly + lh) * S; y++)
+        for (int x = lx * S; x < (lx + lw) * S; x++) blend(x, y, r, g, b, a);
+}
+
+static int text_w(const char *s)
+{
+    int w = 0;
+    for (; *s; s++) {
+        int c = *s - WF_FONT_FIRST;
+        if (c < 0 || c >= WF_FONT_COUNT) c = 0;
+        w += wf_font_adv[c];
+    }
+    return w;
+}
+
+static int gv(const u8 *gl, int x, int y)
+{
+    if (x < 0 || y < 0 || x >= WF_FONT_W || y >= WF_FONT_H) return 0;
+    return gl[y * WF_FONT_W + x];
+}
+
+static void text(int lx, int ly, const char *s, int r, int g, int b, int a)
+{
+    int S = g_S;
+    int x0 = lx * S;
+    for (; *s; s++) {
+        int c = *s - WF_FONT_FIRST;
+        if (c < 0 || c >= WF_FONT_COUNT) c = 0;
+        const u8 *gl = wf_font[c];
+        int dw = WF_FONT_W * S, dh = WF_FONT_H * S;
+        for (int y = 0; y < dh; y++) {
+            int sy = ((2 * y + 1) * 128) / S - 128;
+            int y0 = sy >> 8, fy = sy & 255;
+            for (int x = 0; x < dw; x++) {
+                int sx = ((2 * x + 1) * 128) / S - 128;
+                int xi = sx >> 8, fx = sx & 255;
+                int cov = (gv(gl, xi, y0) * (256 - fx) * (256 - fy) + gv(gl, xi + 1, y0) * fx * (256 - fy) +
+                           gv(gl, xi, y0 + 1) * (256 - fx) * fy + gv(gl, xi + 1, y0 + 1) * fx * fy) >> 16;
+                if (cov) blend(x0 + x, ly * S + y, r, g, b, a * cov / 255);
+            }
+        }
+        x0 += wf_font_adv[c] * S;
+    }
+}
+
+static void text_c(int ly, const char *s, int r, int g, int b)
+{
+    text((PW - text_w(s)) / 2, ly, s, r, g, b, 255);
+}
+
+#define GOLD 201, 169, 75
+#define CREAM 241, 234, 208
+
+static void box(int x, int y, int w, int h, int r, int g, int b, int a)
+{
+    fill(x, y, w, 1, r, g, b, a);
+    fill(x, y + h - 1, w, 1, r, g, b, a);
+    fill(x, y, 1, h, r, g, b, a);
+    fill(x + w - 1, y, 1, h, r, g, b, a);
+}
+
+static void paint_panel(void)
+{
+    fill(0, 0, PW, PH, 22, 40, 26, 214);
+    box(0, 0, PW, PH, GOLD, 255);
+    box(1, 1, PW - 2, PH - 2, GOLD, 255);
+    box(4, 4, PW - 8, PH - 8, 140, 116, 52, 170);
+
+    text_c(10, "WAYFARER", GOLD);
+    fill(16, 34, PW - 32, 1, GOLD, 200);
+
+    for (int i = 0; i < ROWS; i++) {
+        int y = 42 + i * 28;
+        if (i == g_sel) fill(10, y, PW - 20, 26, GOLD, 72);
+        if (i == g_sel) text(16, y + 3, ">", GOLD, 255);
+        text(34, y + 3, row_label[i], CREAM, 255);
+        if (i < 4) {
+            const char *st = g_cheat[i] ? "ON" : "OFF";
+            if (g_cheat[i]) text(PW - 20 - text_w(st), y + 3, st, 150, 226, 120, 255);
+            else text(PW - 20 - text_w(st), y + 3, st, 160, 160, 140, 255);
+        }
+    }
+    fill(16, 186, PW - 32, 1, GOLD, 120);
+    text(16, 190, row_desc[g_sel], 214, 207, 180, 255);
+    text(16, 212, "A toggle      B / R3 close", 170, 168, 140, 255);
+
+    if (g_dlg) {
+        fill(10, 40, PW - 20, 142, 8, 16, 10, 240);
+        box(10, 40, PW - 20, 142, GOLD, 255);
+        text_c(52, "Cheats are experimental", GOLD);
+        text_c(78, "They can crash the game or damage", CREAM);
+        text_c(96, "your save. Use a copy of your save.", CREAM);
+        text_c(130, "A   Accept for this session", 150, 226, 120);
+        text_c(152, "B   Cancel", 200, 180, 160);
+    }
+}
+
+static void draw_menu(void *queue, void *tex, void *win)
+{
+    if (g_fail) return;
+    int fmt = n_texFmt(tex), tw = n_texW(tex), th = n_texH(tex);
+    if (!g_logged) {
+        g_logged = 1;
+        dbgx("swapchain format", (u64)fmt);
+        dbgx("swapchain width", (u64)tw);
+        dbgx("swapchain height", (u64)th);
+    }
+    if (n_texTarget(tex) != 1 || n_texSamples(tex) > 1 || !(fmt == 37 || fmt == 55 || fmt == 56)) {
+        dbg("[wayfarer] swapchain format unsupported; no overlay\n");
+        g_fail = 1;
+        return;
+    }
+    g_ri = fmt == 55 ? 2 : 0;
+    g_bi = fmt == 55 ? 0 : 2;
+    if (!nvn_prepare()) { g_fail = 1; return; }
+
+    int crop[4] = {0, 0, tw, th};
+    n_getCrop(win, crop);
+    if (crop[2] <= 0 || crop[3] <= 0 || crop[0] < 0 || crop[1] < 0 || crop[0] + crop[2] > tw || crop[1] + crop[3] > th) {
+        crop[0] = 0; crop[1] = 0; crop[2] = tw; crop[3] = th;
+    }
+
+    int S = (crop[3] + 135) / 540;
+    if (S < 1) S = 1;
+    for (;; S--) {
+        int w = PW * S, h = PH * S;
+        long stride = ((long)w * 4 + 0x3f) & ~0x3fL;
+        if (w <= crop[2] && h <= crop[3] && stride * h <= POOL_BYTES - BUF_OFF) break;
+        if (S <= 1) return;
+    }
+    int w = PW * S, h = PH * S;
+    long stride = ((long)w * 4 + 0x3f) & ~0x3fL;
+    int region[6] = {crop[0] + 16 * S, crop[1] + (crop[3] - h) / 2, 0, w, h, 1};
+    u64 buf = g_gpu + BUF_OFF;
+
+    /* 1: copy the game's pixels under the panel into the buffer, wait for it. */
+    rec_begin(0);
+    n_cbBarrier(g_cb[0], 3);
+    n_cbStride(g_cb[0], stride);
+    n_cbT2B(g_cb[0], tex, 0, region, buf, 0);
+    n_cbFence(g_cb[0], g_sync, 0, 0);
+    rec_submit(queue, 0);
+    if (n_syncWait(g_sync, 100000000ull) >= 2) {
+        dbg("[wayfarer] copy wait failed\n");
+        return;
+    }
+    n_mpInval(g_pool, BUF_OFF, (u64)stride * h);
+
+    /* 2: paint the panel over them, 3: copy back. */
+    g_px = g_cpu + BUF_OFF;
+    g_pitch = (int)stride;
+    g_S = S;
+    g_wpx = w;
+    g_hpx = h;
+    paint_panel();
+    n_mpFlush(g_pool, BUF_OFF, (u64)stride * h);
+
+    rec_begin(1);
+    n_cbStride(g_cb[1], stride);
+    n_cbB2T(g_cb[1], buf, tex, 0, region, 0);
+    n_cbBarrier(g_cb[1], 3);
+    rec_submit(queue, 1);
+}
+
+static void wf_present(void *queue, void *win, int idx)
+{
+    if (g_open && win == g_win && idx >= 0 && idx < g_ntex) draw_menu(queue, g_tex[idx], win);
+    n_present(queue, win, idx);
+}
+
+/*
+ * Replaces the call to the game's NVN loader fn(device, getProcAddress): run it,
+ * then (once) look up the functions we need and swap our wrappers into the
+ * game's function-pointer slots.
+ */
+u64 wf_nvn_load(void *dev, GetProc gp)
+{
+    u64 r = ((u64 (*)(void *, void *))(g_base + NVN_LOADER))(dev, (void *)gp);
+    static int done;
+    if (!dev || !gp || done) return r;
+    done = 1;
+
+    for (int i = 0; i < NPROCS; i++) {
+        *procs[i].dst = gp(dev, procs[i].name);
+        if (!*procs[i].dst) {
+            dbg("[wayfarer] missing NVN function: ");
+            dbg(procs[i].name);
+            dbg("\n");
+            return r;
+        }
+    }
+    g_dev = dev;
+
+    static const u64 offs[4] = {0x0, 0x20, 0xa8, 0xb0};
+    void *orig[4] = {n_present, n_setTex, n_winInit, n_winFini};
+    void *wrap[4] = {(void *)wf_present, (void *)wf_setTex, (void *)wf_winInit, (void *)wf_winFini};
+    u64 *slot[4];
+    for (int i = 0; i < 4; i++) {
+        MemInfo mi;
+        slot[i] = (u64 *)*(u64 *)(g_base + NVN_TABLE + offs[i]);
+        if (!slot[i] || query_memory((u64)slot[i], &mi) != 0 || (mi.perm & 3) != 3 || *slot[i] != (u64)orig[i]) {
+            dbgx("NVN slot mismatch, index", (u64)i);
+            return r;
+        }
+    }
+    for (int i = 0; i < 4; i++) *slot[i] = (u64)wrap[i];
+    __asm__ volatile("dmb ish" ::: "memory");
+    dbg("[wayfarer] NVN wrappers installed\n");
+    return r;
+}
 
 /* ---- entry ------------------------------------------------------------ */
 
@@ -161,8 +654,9 @@ void wf_init(void)
     t[2] = (u64)wf_thunk2;   /* 0x810 */
     t[3] = (u64)wf_thunk3;   /* 0x818 */
     t[4] = (u64)wf_thunk4;   /* 0x820 */
+    t[5] = (u64)wf_nvn_load; /* 0x828 */
     __asm__ volatile("dmb ish" ::: "memory");
-    dbg("[wayfarer] stage 1 loaded; controller hooks armed (press R3)\n");
+    dbg("[wayfarer] stage 2 loaded; press R3 for the menu\n");
 }
 
 /* ---- module header: entry stub, MOD0, dynamic section ------------------ */
