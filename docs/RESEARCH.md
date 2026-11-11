@@ -1,0 +1,77 @@
+# Wayfarer: research notes
+
+Target: Ocarina of Time Remake 1.1.1, title `0400486024DEC000`, update v131072, main build ID
+`E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348`, running on Lichii (Windows). Single player only.
+
+## Goal
+
+A standalone ExeFS mod (`subsdk8` + IPS) that opens a menu on **R3**:
+
+- God Mode (keep current hearts full, never raise the maximum)
+- Infinite Rupees, Items, Magic: **top up to the current capacity only**, never above it
+  (30/30 bombs, not 99/30; wallet size, not 999)
+- Teleport to key places (new)
+
+## Addresses
+
+Guest address = file offset in the decompressed `main` + `0x80020000` (the Hookshot recompiler's convention).
+Use file offsets in the mod. Derived by matching Hookshot's function table against `main` prologues.
+
+| What | main offset | Notes |
+|---|---|---|
+| Event manager slot | `0x4C7E090` | holder -> EventMgr; `+104` non-zero = event playing |
+| GameDataMgr slot | `0x4C7E180` | holder -> GameDataMgr |
+| GameData bool getter | `0x20D9C0` | `(mgr, out, hash)`; hash `0xEF2B60C2` Sequence_IsLoadingBanc, `0xCEA220D3` Sequence_IsChildhood |
+| GameData string getter | `0xCB0EA0` | hash `0x1D6189DA` CurrentBanc, `0xEE27BF71` ReservedNextBanc |
+| Make event arg | `0xD79F10` | `x0 = arg buffer` (0x1B20 bytes on stack) |
+| Request event | `0xD7A820` | `x0 = EventMgr, x1 = arg` |
+| Set starter link | `0x2BC440` | `x0 = arg+0x1950, x1 = actor, x2 = 0` |
+| Release link | `0x20B6F0` | cleanup for arg+0x1950 and arg+0x1968 after storing vtable `0x4974B20` |
+| Pouch count by name | `0x5963E0` | `x0 = *0x4E78E28 manager, x1 = &name, x2 = 0, x3 = 0` |
+| Pouch add/remove | `0x28B4A70` | see Hookshot `oot_pouch_change` |
+| Life CAS (God Mode) | `0x49DDF8` | patched by rc1 and by Hookshot's `nx2/oot_patches.py` |
+
+## Teleport algorithm (from Hookshot `host/hos_main.c`, `oot_teleport`, GPL-3.0)
+
+1. Refuse if a request was made in the last 8 s, an event is playing, or `Sequence_IsLoadingBanc` is true.
+2. Read `Sequence_IsChildhood` and choose the child or adult map from the destination table.
+3. Build an event request named `Dm_SY_BancChangeGo` with args `NextBanc`, `NextStartPos`, `BootEventName`
+   (strings, pointers must stay valid) and `IsCheckAir` (bool, false), then set the starter actor and call request.
+4. Release the two actor links.
+
+31 destinations are in Hookshot `host/hos_main.c` lines 569-632.
+
+## Mod structure (from rc1 `subsdk8` and its IPS)
+
+- **IPS offsets are memory offsets + 0x100** (Atmosphere adds the NSO header). Every hook-site offset listed
+  below and in the IPS files is an IPS offset; subtract 0x100 to index the flat `main` image. (The Hookshot
+  function addresses in the table above are memory offsets already.) Verified: `cas w11,w12,[x13]` is at
+  memory 0x49DCF8 (IPS 0x49DDF8).
+- The IPS patches 17 sites in `main`. Each jumps to a trampoline in a code cave at `0x3C46380+` that loads a
+  function pointer from a bridge table at `0x4E9F800+` (8-byte slots) and branches to it when non-null,
+  otherwise runs the original instruction.
+- rc1 module init (DT_INIT at text 0xE0): checks the title id with `svc 0x29`, finds `main` by walking
+  `QueryMemory` downward for the RX region of size 0x3C47000 whose word at +4 is 0x3C4705C, checks the bridge
+  table is empty, then fills slots. The module's `ret` at text 0 and MOD0 offset at text 4 are the NSO entry.
+- Slot map (IPS site -> slot): npad readers 34695F8/3469624/3469650/346976C/3469798 -> 0x800/0x808/0x810/
+  0x818/0x820 (each `bl`s one of five `nn::hid` pad-state functions at memory 0x3C427F0/810/820/800/830;
+  signature `long fn(State *out, int count, const u32 *npad_id)`, buttons u64 at `out+8`, R3 = StickR = bit 5);
+  render hook 346C0F0/346C1D4 -> 0x828; scene reset 32C1EB0/32D8600/32BBDE0 -> 0x830/0x838/0x840;
+  per-frame actor update 49D9C0 -> 0x848 (finds Link by the name "Player"); damage 2F8E860 -> 0x850;
+  movement speed 934A90/280FC44 -> 0x858/0x860, 27CD040/27D08E4 -> 0x868; life CAS 49DDF8 -> 0x870 (a data
+  slot holding the life pointer, compared in the trampoline).
+- rc1 `subsdk8`: text 0x3B7C+, a ~36 MB bss used as an overlay staging buffer, NVN function lookups
+  (`nvnQueuePresentTexture`, `nvnWindowInitialize`, ...), menu state struct in bss, rows in a label table.
+- rc1 hook sites (main offsets): `49D9C0, 49DDF8, 934A90, 27CD040, 27D08E4, 280FC44, 2F8E860, 32BBDE0,
+  32C1EB0, 32D8600, 34695F8, 3469624, 3469650, 346976C, 3469798, 346C0F0, 346C1D4`.
+  Their individual purposes still need to be decoded.
+
+## Tooling
+
+- `tools/nso.py` loads an NSO (LZ4 handled), `tools/pe.py` parses Windows PE files.
+- Zig 0.17.1 builds ARM64 (`zig cc -target aarch64-freestanding`).
+- The update `main` in the raw dump is packed (`ZBIC`); use an unpacked `main` (Hookshot's `.hookshot_exefs`).
+
+## Licence
+
+Teleport logic derives from Hookshot (GPL-3.0). Wayfarer is therefore GPL-3.0.

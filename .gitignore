@@ -1,0 +1,14 @@
+# game files and third-party reference binaries: never commit
+ref/
+dump/
+*.nso
+*.nca
+*.zip
+# build output
+build/
+dist/
+zig-cache/
+.zig-cache/
+zig-out/
+__pycache__/
+*.pyc
