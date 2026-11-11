@@ -169,7 +169,7 @@ __asm__(
     "  .word __bss_end - . + 8\n"
     "  .word 0\n"                      /* eh_frame_hdr start */
     "  .word 0\n"                      /* eh_frame_hdr end */
-    "  .word 0\n"                      /* runtime module object */
+    "  .word __bss_start - . + 0x18\n" /* runtime module object: first bytes of bss, written by rtld */
     ".balign 8\n"
     "dynamic:\n"
     "  .quad 7,  wf_rela\n"            /* DT_RELA */
@@ -184,6 +184,9 @@ __asm__(
     "  .quad 12, wf_init\n"            /* DT_INIT */
     "  .quad 0,  0\n"                  /* DT_NULL */
 
+    ".section .bss.modobj,\"aw\",@nobits\n"
+    ".balign 16\n"
+    "  .zero 0x400\n"
     ".section .rodata.dyn,\"a\"\n"
     ".balign 8\n"
     "wf_symtab:\n  .zero 24\n"

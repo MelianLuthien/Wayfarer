@@ -18,6 +18,7 @@ SECTIONS
     . = ALIGN(0x1000);
     __bss_start = .;
     .bss : {
+        KEEP(*(.bss.modobj))
         *(.bss .bss.*)
         *(COMMON)
     }
