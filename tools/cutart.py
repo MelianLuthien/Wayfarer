@@ -54,6 +54,7 @@ SHEETS = {
     11: (2, 1, ["brand_logo", "brand_emblem"]),
 }
 FILES = {12: "sheet08b_upgrades2.jpg"}
+EXTRAS = ["row_speed", "row_jump"]   # wayfarer-art/<name>.png, made by hand
 FRAME = ["frame_corner", "frame_edge", "header_cap", "header_mid"]  # sheet 1, 2 x 2, cut by quarter
 
 # Everything the menu will need that has no art yet. Each gets a placeholder tile.
@@ -293,6 +294,10 @@ def main():
         print("sheet", num)
         for nm, (img, cell) in cut_grid(p, cols, rows, names).items():
             save(nm, img, num, cell)
+    for nm in EXTRAS:   # finished icons that need no cutting, saved straight into the art folder
+        pe = os.path.join(ART, nm + ".png")
+        if os.path.exists(pe):
+            save(nm, Image.open(pe).convert("RGBA"), None, None)
     shot = os.path.join(ART, SONG_SHOT)
     have = set()
     if os.path.exists(shot):

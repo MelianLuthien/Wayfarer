@@ -273,6 +273,8 @@ static void text_r(int f, int rx, int cy2, const char *s, u32 col)
 #define ICON_ROW_MARK 0
 #define ICON_ROW_RETURN 0
 #define ICON_ROW_AGE 0
+#define ICON_ROW_SPEED 0
+#define ICON_ROW_JUMP 0
 #define ICON_SWORD_KOKIRI 0
 #endif
 #ifndef ICON_COUNT
@@ -405,7 +407,7 @@ static void paint_panel(void)
     fill(46, 95, 448, 1, BRASS, 204);
 
     if (g_tab == 0) {
-        static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC, ICON_ROW_FLY, ICON_BOOTS_HOVER, ICON_BOOTS_HOVER};
+        static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC, ICON_ROW_FLY, ICON_ROW_SPEED, ICON_ROW_JUMP};
         for (int i = 0; i < PLAYER_ROWS; i++) {
             int y = 100 + i * 21;
             if (i == g_sel) sel_box(46, (float)y, 448, 21);
