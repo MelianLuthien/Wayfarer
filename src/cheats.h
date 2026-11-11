@@ -273,6 +273,7 @@ static int do_teleport(u64 link_actor, int idx)
 }
 
 #include "cheats2.h"
+#include "cheats3.h"
 
 /* Called from the player actor's update (owner = its owner object). */
 void wf_actor_pre(void *owner)
@@ -321,6 +322,9 @@ void wf_actor_pre(void *owner)
         int r = __atomic_exchange_n(&g_item_req, 0, __ATOMIC_SEQ_CST) - 1;
         if (game_ready()) item_edit(r >> 8, r & 255);
     }
+    if (g_cheat[4]) flight_step(a);
+    else if (g_speed) speed_step(a);
+    else g_fl_actor = g_sp_actor = 0;
     if (g_open && g_tab == 1 && (++g_icnt_tick % 20 == 0 || g_icnt_dirty)) { g_icnt_dirty = 0; refresh_counts(); }
 
     if (!(g_cheat[1] | g_cheat[2] | g_cheat[3])) return;

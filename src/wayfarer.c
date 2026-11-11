@@ -19,7 +19,7 @@ typedef unsigned char u8;
 #define MAIN_RX_SIZE    0x3c47000ull   /* size of main's executable region */
 #define MAIN_MOD0_WORD  0x3c4705cu     /* word at main+4: offset of MOD0 */
 #define BRIDGE_OFFSET   0x4E9F800ull   /* bridge table inside main's bss */
-#define BRIDGE_BYTES    0x78ull
+#define BRIDGE_BYTES    0x80ull
 #define NVN_LOADER      0x129E290ull   /* main: fn(device, getProcAddress) */
 #define NVN_TABLE       0x4c8dde8ull   /* main: pointers to the game's NVN function slots */
 
@@ -102,7 +102,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.6"
+#define WF_VERSION "v261111.7"
 
 static u64 now_ms(void)
 {
@@ -130,26 +130,29 @@ static int world_running(void)
 #include "destinations.h"
 
 #define TABS 4
-#define PLAYER_ROWS 4
+#define PLAYER_ROWS 6
 /* No static pointer tables anywhere: the module has no relocations, so any
  * absolute address stored in data would be wrong at runtime. */
 /* Strings live in one blob and are found by walking it: a chain of ifs can be
  * compiled into a table of pointers, which would need relocations. */
-static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic";
+static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic\0No-clip flight\0Movement speed";
 static const char descs_blob[] =
     "Hearts stay full; max is never raised\0"
     "Wallet tops up to its current size\0"
     "Ammo refills to your current limits\0"
-    "Magic refills to the current limit";
+    "Magic refills to the current limit\0"
+    "Left stick flies, ZR up, ZL down\0"
+    "Left / Right sets how fast Link moves";
 static const char tabs_blob[] = "Player\0Items\0World\0Teleport";
-static const char wlabels_blob[] = "Time of day\0Mark position\0Return to mark\0Switch age";
+static const char wlabels_blob[] = "Time of day\0Mark position\0Return to mark\0Switch age\0Free camera";
 static const char wdescs_blob[] =
     "Left / Right picks the hour, A sets it\0"
     "Remember where Link stands\0"
     "Go back to the marked place\0"
-    "Child or adult; the map reloads";
+    "Child or adult; the map reloads\0"
+    "Sticks move and look, ZR/ZL up and down, A faster";
 #include "items.h"
-#define WORLD_ROWS 4
+#define WORLD_ROWS 5
 
 static const char *nth(const char *blob, int i)
 {
@@ -174,7 +177,10 @@ volatile int g_world_req;        /* 1 time, 2 mark, 3 return, 4 age: served on t
 volatile int g_item_req;         /* (item * 256 + op) + 1: served on the game thread */
 static volatile int g_icount[ITEM_COUNT];   /* what the pouch holds, refreshed while the Items tab is open */
 extern volatile int g_tp_req;    /* set here, served on the game thread (cheats.h) */
-static volatile int g_cheat[4];  /* God, Rupees, Items, Magic (stage 3 will read these) */
+static volatile int g_cheat[8];  /* God, Rupees, Items, Magic, Flight, Free camera */
+static volatile int g_speed;     /* 0..3: 1x, 1.5x, 2x, 3x */
+static volatile int g_stk[4];    /* raw sticks: left x, y, right x, y (before the game sees them) */
+static volatile u64 g_held;      /* raw buttons held */
 
 enum { B_A = 0, B_B = 1, B_X = 2, B_Y = 3, B_R3 = 5, B_L = 6, B_R = 7, B_LEFT = 12, B_UP = 13, B_RIGHT = 14, B_DOWN = 15 };
 #define BIT(n) (1ull << (n))
@@ -186,19 +192,27 @@ static void menu_input(u64 e)
     g_gen++;
 }
 
-/* what: 0..3 flip that cheat; 4 teleport to the selected destination; 100 + n a World action
- * (n: 0 time, 1 mark, 2 return, 3 age); 1000 + item * 256 + op an inventory edit. */
+/* what: 0..4 flip that cheat; 5 and 61 speed up, 60 slow down; 50 teleport to the selected destination;
+ * 100 + n a World action (n: 0 time, 1 mark, 2 return, 3 age, 4 free camera);
+ * 1000 + item * 256 + op an inventory edit. */
 static void activate(int what)
 {
-    if (what == 4) {
+    if (what == 50) {
         g_tp_req = g_tsel + 1;
         g_open = 0;
         dbgx("teleport chosen", (u64)g_tsel);
     } else if (what >= 1000) {
         g_item_req = what - 1000 + 1;
+    } else if (what == 104) {
+        g_cheat[5] = !g_cheat[5];
+        if (g_cheat[5]) g_open = 0;   /* look around with the menu closed; R3 reopens it */
     } else if (what >= 100) {
         g_world_req = what - 100 + 1;
         if (what == 103) g_open = 0;   /* the map reloads */
+    } else if (what == 5 || what == 61) {
+        g_speed = (g_speed + 1) & 3;
+    } else if (what == 60) {
+        g_speed = (g_speed + 3) & 3;
     } else {
         g_cheat[what] = !g_cheat[what];
     }
@@ -237,6 +251,10 @@ static void menu_input_inner(u64 e)
     if (g_tab == 0) {
         if (e & BIT(B_UP)) g_sel = (g_sel + PLAYER_ROWS - 1) % PLAYER_ROWS;
         if (e & BIT(B_DOWN)) g_sel = (g_sel + 1) % PLAYER_ROWS;
+        if (g_sel == 5) {
+            if (e & BIT(B_LEFT)) request(60);
+            if (e & BIT(B_RIGHT)) request(61);
+        }
         if (e & BIT(B_A)) request(g_sel);
     } else if (g_tab == 1) {
         int s = g_isel;
@@ -263,7 +281,7 @@ static void menu_input_inner(u64 e)
         if (e & BIT(B_DOWN)) g_tsel = (g_tsel + 1) % TP_COUNT;
         if (e & BIT(B_LEFT)) g_tsel = g_tsel >= 7 ? g_tsel - 7 : 0;
         if (e & BIT(B_RIGHT)) g_tsel = g_tsel + 7 < TP_COUNT ? g_tsel + 7 : TP_COUNT - 1;
-        if (e & BIT(B_A)) request(4);
+        if (e & BIT(B_A)) request(50);
     }
 }
 
@@ -293,6 +311,9 @@ long wf_npad(void *out, int count, const u32 *id, u64 fn_off, u64 idx)
             u64 b = *(u64 *)(o + 8);
             u64 e = b & ~g_prev[idx];
             g_prev[idx] = b;
+            g_stk[0] = *(int *)(o + 0x10); g_stk[1] = *(int *)(o + 0x14);
+            g_stk[2] = *(int *)(o + 0x18); g_stk[3] = *(int *)(o + 0x1c);
+            g_held = b;
             if (e) menu_input(e);
         } else {
             g_prev[idx] = 0;
@@ -304,11 +325,21 @@ long wf_npad(void *out, int count, const u32 *id, u64 fn_off, u64 idx)
             dbg("[wayfarer] menu closed: the game stopped running\n");
         }
         if (was_open || g_open) {
+            g_stk[0] = g_stk[1] = g_stk[2] = g_stk[3] = 0;   /* the menu is not a joystick for the cheats */
+            g_held = 0;
+        }
+        if (was_open || g_open || g_cheat[5]) {   /* menu or free camera: the game sees no input */
             for (long i = 0; i < n; i++) {
                 u8 *s = o + i * 0x28;
                 *(u64 *)(s + 8) = 0;
                 *(u64 *)(s + 0x10) = 0;
                 *(u64 *)(s + 0x18) = 0;
+            }
+        } else if (g_cheat[4]) {   /* flight: the stick and ZL/ZR steer the flight, not Link */
+            for (long i = 0; i < n; i++) {
+                u8 *s = o + i * 0x28;
+                *(u64 *)(s + 8) &= ~(BIT(8) | BIT(9));
+                *(u64 *)(s + 0x10) = 0;
             }
         }
     }
@@ -690,7 +721,6 @@ static void toggle_switch(int lx, int ly, int on)
 
 static void paint_panel(void)
 {
-    static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC};
     fill(0, 0, PW, PH, 22, 40, 26, WF_READBACK ? 214 : 255);
     box(0, 0, PW, PH, GOLD, 255);
     box(1, 1, PW - 2, PH - 2, GOLD, 255);
@@ -710,26 +740,23 @@ static void paint_panel(void)
     fill(16, 72, PW - 32, 1, GOLD, 200);
 
     if (g_tab == 0) {
+        static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC, ICON_ROW_FLY, ICON_BOOTS_HOVER};
         for (int i = 0; i < PLAYER_ROWS; i++) {
-            int y = 80 + i * 44;
-            if (i == g_sel) { fill(16, y, PW - 32, 42, GOLD, 60); box(16, y, PW - 32, 42, GOLD, 200); }
-            draw_icon(24, y + 5, 32, row_icon[i]);
-            text(66, y + 3, row_label(i), CREAM, 255);
-            text(66, y + 21, row_desc(i), 170, 168, 140, 255);
-            toggle_switch(PW - 24 - 44, y + 11, g_cheat[i]);
+            int y = 78 + i * 26;
+            if (i == g_sel) { fill(16, y, PW - 32, 25, GOLD, 60); box(16, y, PW - 32, 25, GOLD, 200); }
+            draw_icon(22, y + 1, 23, row_icon[i]);
+            text(54, y + 3, row_label(i), CREAM, 255);
+            if (i < 5) toggle_switch(PW - 24 - 44, y + 3, g_cheat[i]);
+            else {
+                static const char sp_txt[] = "1x\01.5x\02x\03x";
+                const char *t = nth(sp_txt, g_speed & 3);
+                text(PW - 24 - 44, y + 3, "<", GOLD, 255);
+                text(PW - 24 - 44 + (44 - text_w(t)) / 2, y + 3, t, g_speed ? 150 : 214, g_speed ? 226 : 207, g_speed ? 120 : 180, 255);
+                text(PW - 24 - text_w(">"), y + 3, ">", GOLD, 255);
+            }
         }
-    } else if (g_tab == 3) {
-        int top = g_tsel - 3;
-        if (top > TP_COUNT - 7) top = TP_COUNT - 7;
-        if (top < 0) top = 0;
-        for (int k = 0; k < 7; k++) {
-            int i = top + k, y = 80 + k * 25;
-            if (i == g_tsel) { fill(16, y, PW - 32, 24, GOLD, 72); text(24, y + 3, ">", GOLD, 255); }
-            text(46, y + 3, nth(tp_names, i), CREAM, 255);
-        }
-        /* scroll thumb */
-        fill(PW - 22, 80, 4, 174, 0, 0, 0, 90);
-        fill(PW - 22, 80 + (174 - 24) * g_tsel / (TP_COUNT - 1), 4, 24, GOLD, 220);
+        fill(16, 236, PW - 32, 1, GOLD, 120);
+        text(18, 239, row_desc(g_sel), 170, 168, 140, 255);
     } else if (g_tab == 1) {
         int top = g_isel / 12 - 1, rows = (ITEM_COUNT + 11) / 12;
         if (top > rows - 4) top = rows - 4;
@@ -774,23 +801,26 @@ static void paint_panel(void)
             else text(PW - 18 - text_w(st), 236, st, 160, 160, 140, 255);
         }
     } else if (g_tab == 2) {
-        static const u8 wicon[WORLD_ROWS] = {ICON_ROW_TIME, ICON_ROW_MARK, ICON_ROW_RETURN, ICON_ROW_AGE};
+        static const u8 wicon[WORLD_ROWS] = {ICON_ROW_TIME, ICON_ROW_MARK, ICON_ROW_RETURN, ICON_ROW_AGE, ICON_ROW_CAMERA};
         for (int i = 0; i < WORLD_ROWS; i++) {
-            int y = 80 + i * 44;
-            if (i == g_wsel) { fill(16, y, PW - 32, 42, GOLD, 60); box(16, y, PW - 32, 42, GOLD, 200); }
-            draw_icon(24, y + 5, 32, wicon[i]);
-            text(66, y + 3, nth(wlabels_blob, i), CREAM, 255);
-            text(66, y + 21, nth(wdescs_blob, i), 170, 168, 140, 255);
+            int y = 78 + i * 26;
+            if (i == g_wsel) { fill(16, y, PW - 32, 25, GOLD, 60); box(16, y, PW - 32, 25, GOLD, 200); }
+            draw_icon(22, y + 1, 23, wicon[i]);
+            text(54, y + 3, nth(wlabels_blob, i), CREAM, 255);
             if (i == 0) {
                 char t[8];
                 t[0] = (char)('0' + g_hour / 10);
                 t[1] = (char)('0' + g_hour % 10);
                 t[2] = ':'; t[3] = '0'; t[4] = '0'; t[5] = 0;
-                text(PW - 24 - text_w("<  00:00  >"), y + 11, "<", GOLD, 255);
-                text(PW - 24 - text_w("00:00  >"), y + 11, t, CREAM, 255);
-                text(PW - 24 - text_w(">"), y + 11, ">", GOLD, 255);
+                text(PW - 24 - 66, y + 3, "<", GOLD, 255);
+                text(PW - 24 - 66 + (66 - text_w(t)) / 2, y + 3, t, CREAM, 255);
+                text(PW - 24 - text_w(">"), y + 3, ">", GOLD, 255);
+            } else if (i == 4) {
+                toggle_switch(PW - 24 - 44, y + 3, g_cheat[5]);
             }
         }
+        fill(16, 236, PW - 32, 1, GOLD, 120);
+        text(18, 239, nth(wdescs_blob, g_wsel), 170, 168, 140, 255);
     }
 
     fill(16, 260, PW - 32, 1, GOLD, 120);
@@ -995,6 +1025,7 @@ void wf_init(void)
     t[5] = (u64)wf_nvn_load; /* 0x828 */
     wf_actor_orig = base + 0x3c4631c;
     t[9] = (u64)wf_actor_thunk; /* 0x848 */
+    t[15] = (u64)wf_cam_hook;   /* 0x878 */
     __asm__ volatile("dmb ish" ::: "memory");
     /* size test for the embedded art: if the module loaded, these lines show the blob is mapped and readable */
     dbgx("icons bytes", (u64)(wf_icon_blob_end - wf_icon_blob));

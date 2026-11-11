@@ -85,6 +85,41 @@ def life_trampoline(pc):
     return code
 
 
+CAM_SITE = 0x4C5068 + NSO_HDR   # IPS offset: `ldr x8, [x19, #0x20]` right after the view matrix is stored (x20 = view)
+CAM_ORIG = 0xF9401268           # that instruction
+CAM_BACK = 0x4C506C             # memory offset of the instruction after it
+CAM_SLOT = 0x878                # hook(view)
+
+
+def camera_trampoline(pc):
+    """Saves every register, calls the hook with x0 = x20 (the view), restores, runs the replaced instruction."""
+    w = []
+    w.append(0xD10C03FF)                                              # sub sp, sp, #0x300
+    for i in range(0, 30, 2):                                         # x0..x29 at sp+0..0xE8
+        w.append(0xA9000000 | ((i * 8 // 8) << 15) | ((i + 1) << 10) | (31 << 5) | i)
+    w.append(0xF9000000 | ((0xF0 // 8) << 10) | (31 << 5) | 30)       # str x30, [sp, #0xF0]
+    for i in range(0, 32, 2):                                         # q0..q31 at sp+0x100..
+        w.append(0xAD000000 | ((16 + i) << 15) | ((i + 1) << 10) | (31 << 5) | i)
+    w.append(0xAA1403E0)                                              # mov x0, x20
+    code = b"".join(struct.pack("<I", x) for x in w)
+    here = pc + len(code)
+    code += adrp(here, 16, BRIDGE)
+    code += struct.pack("<I", 0xF9400000 | ((CAM_SLOT // 8) << 10) | (16 << 5) | 16)   # ldr x16, [x16, #slot]
+    code += struct.pack("<I", 0xB4000000 | (2 << 5) | 16)                              # cbz x16, +8
+    code += struct.pack("<I", 0xD63F0200)                                              # blr x16
+    w = []
+    for i in range(0, 30, 2):
+        w.append(0xA9400000 | ((i * 8 // 8) << 15) | ((i + 1) << 10) | (31 << 5) | i)
+    w.append(0xF9400000 | ((0xF0 // 8) << 10) | (31 << 5) | 30)       # ldr x30, [sp, #0xF0]
+    for i in range(0, 32, 2):
+        w.append(0xAD400000 | ((16 + i) << 15) | ((i + 1) << 10) | (31 << 5) | i)
+    w.append(0x910C03FF)                                              # add sp, sp, #0x300
+    w.append(CAM_ORIG)
+    code += b"".join(struct.pack("<I", x) for x in w)
+    code += b(pc + len(code), CAM_BACK)
+    return code
+
+
 def records():
     recs = []
     pc = CAVE
@@ -100,7 +135,11 @@ def records():
     recs.append((LIFE_SITE, b(LIFE_SITE - NSO_HDR, pc)))
     recs.append((pc + NSO_HDR, life_trampoline(pc)))
     pc += 44
-    assert pc < 0x3C46500
+    cam = camera_trampoline(pc)
+    recs.append((CAM_SITE, b(CAM_SITE - NSO_HDR, pc)))
+    recs.append((pc + NSO_HDR, cam))
+    pc += len(cam)
+    assert pc < 0x3C47000
     return recs
 
 
