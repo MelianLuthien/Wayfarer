@@ -99,6 +99,9 @@ static int get_program_id(u64 *out)
 
 /* ---- time and "is the world running" ------------------------------------ */
 
+/* Bumped with every build (vYYMMDD.N). */
+#define WF_VERSION "v261111.1"
+
 static u64 now_ms(void)
 {
     u64 t, f;
@@ -519,6 +522,7 @@ static void paint_panel(void)
     box(4, 4, PW - 8, PH - 8, 140, 116, 52, 170);
 
     text_c(10, "WAYFARER", GOLD);
+    text(PW - 14 - text_w(WF_VERSION), 12, WF_VERSION, 150, 140, 105, 255);
     fill(16, 34, PW - 32, 1, GOLD, 200);
 
     for (int i = 0; i < ROWS; i++) {
