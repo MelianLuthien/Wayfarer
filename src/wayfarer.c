@@ -102,7 +102,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.8"
+#define WF_VERSION "v261111.9"
 
 static u64 now_ms(void)
 {
@@ -800,6 +800,17 @@ static void paint_panel(void)
             if (n > 0 || g_icount[g_isel] > 0) text(PW - 18 - text_w(st), 236, st, 150, 226, 120, 255);
             else text(PW - 18 - text_w(st), 236, st, 160, 160, 140, 255);
         }
+    } else if (g_tab == 3) {
+        int top = g_tsel - 3;
+        if (top > TP_COUNT - 7) top = TP_COUNT - 7;
+        if (top < 0) top = 0;
+        for (int k = 0; k < 7; k++) {
+            int i = top + k, y = 80 + k * 25;
+            if (i == g_tsel) { fill(16, y, PW - 32, 24, GOLD, 72); text(24, y + 3, ">", GOLD, 255); }
+            text(46, y + 3, nth(tp_names, i), CREAM, 255);
+        }
+        fill(PW - 22, 80, 4, 174, 0, 0, 0, 90);
+        fill(PW - 22, 80 + (174 - 24) * g_tsel / (TP_COUNT - 1), 4, 24, GOLD, 220);
     } else if (g_tab == 2) {
         static const u8 wicon[WORLD_ROWS] = {ICON_ROW_TIME, ICON_ROW_MARK, ICON_ROW_RETURN, ICON_ROW_AGE, ICON_ROW_CAMERA};
         for (int i = 0; i < WORLD_ROWS; i++) {

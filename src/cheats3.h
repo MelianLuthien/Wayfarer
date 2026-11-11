@@ -82,12 +82,13 @@ static void speed_step(u64 a)
     if (!c || ev_playing()) { g_sp_actor = 0; return; }
     float x = f_at(a + 796), y = f_at(a + 800), z = f_at(a + 804);
     if (g_sp_actor == a) {
-        float dx = x - g_sp_prev[0], dz = z - g_sp_prev[2], d2 = dx * dx + dz * dz;
-        if (d2 > 1e-8f && d2 < 1.0f) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
+        float dx = x - g_sp_prev[0], dy = y - g_sp_prev[1], dz = z - g_sp_prev[2], d2 = dx * dx + dz * dz;
+        if (d2 > 1e-8f && d2 + dy * dy < 1.0f) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));
             float m = speed_mul[g_speed & 3];
             x = g_sp_prev[0] + dx * m;
             z = g_sp_prev[2] + dz * m;
+            y = g_sp_prev[1] + dy * m;   /* scale the climb too, or slopes push Link under the floor */
             arg[0] = x; arg[1] = y; arg[2] = z; arg[3] = 0.f;
             ((void (*)(u64, float *))(g_base + FN_CHANGE_POS))(c, arg);
         }
