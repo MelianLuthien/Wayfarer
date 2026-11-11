@@ -44,6 +44,8 @@ def main():
 
     # Pack the icon art into build/art/icons64.bin and src/icons.h (empty when there is no art yet).
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "packicons.py")], check=True)
+    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "genfont.py")], check=True)
+    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "packframe.py")], check=True)
 
     cmd = [
         args.zig, "cc", "-target", "aarch64-freestanding", "-mcpu=cortex_a57", "-O2",
