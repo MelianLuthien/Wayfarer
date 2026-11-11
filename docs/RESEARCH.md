@@ -66,6 +66,24 @@ Use file offsets in the mod. Derived by matching Hookshot's function table again
   32C1EB0, 32D8600, 34695F8, 3469624, 3469650, 346976C, 3469798, 346C0F0, 346C1D4`.
   Their individual purposes still need to be decoded.
 
+## Stage 1 result (verified in the emulator log)
+
+The module loads, the IPS applies, the five npad hooks fire: `[wayfarer] R3 pressed` is logged.
+Lessons: the NSO header's bss size counts from the unaligned end of data; MOD0 needs a runtime
+module object offset pointing at reserved bss (rtld writes there). Lichii's log is
+`%APPDATA%\fritchii\log\eden_log.txt` (previous run in `eden_log.txt.old.txt`); the module's
+`svc 0x27` lines show up as `Debug.Emulated ... OutputDebugString`.
+
+## Stage 2 notes (drawing)
+
+- The game loads NVN through `main` 0x129E290 (IPS 0x129E390): `fn(x0, x1 = getProcAddress)` resolves NVN
+  functions by name and stores them in a pointer table around `0x4C8D000 + 0xBE8...`. The call sites
+  at IPS 346C0F0/346C1D4 are the hook point (bridge slot 0x828): rc1 lets the loader run, then
+  swaps entries in that table for its own wrappers (present, memory pool, command buffer).
+- Plan: wrap present; on a frame where the menu is open, draw the menu on the CPU (bitmap font,
+  rectangles) into a staging buffer and copy it onto the swapchain texture with an NVN command
+  buffer before presenting. Avoids needing compiled shaders.
+
 ## Tooling
 
 - `tools/nso.py` loads an NSO (LZ4 handled), `tools/pe.py` parses Windows PE files.
