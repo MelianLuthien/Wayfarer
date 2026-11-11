@@ -341,7 +341,10 @@ static u8 g_mpb[0x100] __attribute__((aligned(64)));
 static u8 g_sync[0x100] __attribute__((aligned(64)));
 static u8 g_cb[2][0x400] __attribute__((aligned(64)));
 static u8 g_ctl[2][0x1000] __attribute__((aligned(16)));
-static int g_ready, g_fail, g_logged, g_timeouts;
+static int g_ready, g_fail, g_logged;
+#if WF_READBACK
+static int g_timeouts;
+#endif
 static u8 *g_cpu;
 static u64 g_gpu;
 
@@ -379,6 +382,11 @@ static void rec_submit(void *queue, int i)
 
 /* ---- software drawing into the panel buffer ---------------------------- */
 
+/* 1 = read the game pixels back and blend (translucent panel); needs the GPU fence to
+ * work in the emulator, which it did not in the first try, so 0 = opaque panel. */
+#ifndef WF_READBACK
+#define WF_READBACK 0
+#endif
 #define PW 330
 #define PH 236
 
@@ -465,7 +473,7 @@ static void box(int x, int y, int w, int h, int r, int g, int b, int a)
 
 static void paint_panel(void)
 {
-    fill(0, 0, PW, PH, 22, 40, 26, 214);
+    fill(0, 0, PW, PH, 22, 40, 26, WF_READBACK ? 214 : 255);
     box(0, 0, PW, PH, GOLD, 255);
     box(1, 1, PW - 2, PH - 2, GOLD, 255);
     box(4, 4, PW - 8, PH - 8, 140, 116, 52, 170);
@@ -537,6 +545,7 @@ static void draw_menu(void *queue, void *tex, void *win)
     int region[6] = {crop[0] + 16 * S, crop[1] + (crop[3] - h) / 2, 0, w, h, 1};
     u64 buf = g_gpu + BUF_OFF;
 
+#if WF_READBACK
     /* 1: copy the game's pixels under the panel into the buffer, wait for it. */
     rec_begin(0);
     n_cbBarrier(g_cb[0], 3);
@@ -552,6 +561,7 @@ static void draw_menu(void *queue, void *tex, void *win)
     }
     n_mpInval(g_pool, BUF_OFF, (u64)stride * h);
 
+#endif
     /* 2: paint the panel over them, 3: copy back. */
     g_px = g_cpu + BUF_OFF;
     g_pitch = (int)stride;
