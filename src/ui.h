@@ -385,21 +385,24 @@ static void sel_box(float x, float y, float w, float h)
     rr(x, y, w, h, 3, 1.5f, WOOD, WOOD, 255);
 }
 
-/* A brass knob in a carved slot, 44 x 18. */
+/* A wooden toggle, 44 x 18, like a carved wooden slider: dark rim, plank inside, round wooden knob. */
 static void slider(int lx, int ly, int on)
 {
     float fx = (float)lx, fy = (float)ly;
-    rr(fx, fy + 0.8f, 44, 18, 9, 0, 0xfff4d6, 0xfff4d6, 90);                  /* light edge under the slot */
-    rr(fx, fy, 44, 18, 9, 0, 0x24170c, 0x4a3320, 255);                        /* dark carved track */
-    if (on) {
-        rr(fx + 2, fy + 2, 40, 14, 7, 0, AMB0, AMB1, 255);                    /* amber fill */
-        rr(fx + 3.5f, fy + 2.8f, 37, 5, 2.5f, 0, 0xffffff, 0xffe9a8, 90);     /* gloss */
-    }
-    rr(fx, fy, 44, 18, 9, 1.4f, EDGE, EDGE, 255);
-    float kx = fx + (on ? 34.0f : 10.0f), ky = fy + 9.0f;
-    disc(kx, ky + 1.0f, 7.2f, 0, 0, 0, 100);
-    disc(kx, ky, 7.2f, 0xffe9b0, 0xc98a3a, 0x6b3f16, 255);                    /* wooden knob */
-    disc(kx, ky, 4.4f, 0xe9b060, 0xb5702a, 0x8a5020, 255);
+    rr(fx, fy + 0.8f, 44, 18, 9, 0, 0, 0, 70);                                          /* drop shadow */
+    rr(fx, fy, 44, 18, 9, 0, 0x6b3d1c, 0x3a2010, 255);                                  /* rim */
+    rr(fx + 1.6f, fy + 1.6f, 40.8f, 14.8f, 7.4f, 0, on ? 0xf2b25e : 0x9a7048, on ? 0xd98a3a : 0x6e4a2c, 255);   /* plank */
+    static const float gy[4] = {5.5f, 8.0f, 10.5f, 13.0f};                              /* wood grain */
+    static const float gx[4] = {10.0f, 17.0f, 8.0f, 14.0f};
+    static const float gw[4] = {22.0f, 18.0f, 26.0f, 20.0f};
+    for (int k = 0; k < 4; k++) rr(fx + gx[k], fy + gy[k], gw[k], 0.7f, 0.35f, 0, 0x5a2e10, 0x5a2e10, on ? 70 : 90);
+    rr(fx + 3.5f, fy + 2.4f, 37, 4, 2, 0, 0xffffff, 0xffe0a0, on ? 80 : 40);            /* sheen */
+    rr(fx + 1.6f, fy + 1.6f, 40.8f, 14.8f, 7.4f, 1.2f, 0x4a2a14, 0x4a2a14, 150);        /* inner shadow */
+    float kx = fx + (on ? 34.5f : 9.5f), ky = fy + 9.0f;
+    disc(kx, ky + 1.0f, 7.8f, 0, 0, 0, 90);
+    disc(kx, ky, 7.8f, 0x8a5224, 0x5a3014, 0x3a2010, 255);                              /* knob rim */
+    disc(kx, ky, 6.4f, 0xffd98f, 0xeaa04a, 0xb8702a, 255);                              /* knob */
+    rr(kx - 3.5f, ky - 4.6f, 5.5f, 1.6f, 0.8f, 0, 0xffffff, 0xffffff, 110);             /* knob glint */
 }
 
 /* "‹ 2x ›", right-aligned at logical rx. */
