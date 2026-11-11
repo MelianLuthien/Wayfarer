@@ -102,7 +102,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.9"
+#define WF_VERSION "v261111.10"
 
 static u64 now_ms(void)
 {
@@ -130,19 +130,20 @@ static int world_running(void)
 #include "destinations.h"
 
 #define TABS 4
-#define PLAYER_ROWS 6
+#define PLAYER_ROWS 7
 /* No static pointer tables anywhere: the module has no relocations, so any
  * absolute address stored in data would be wrong at runtime. */
 /* Strings live in one blob and are found by walking it: a chain of ifs can be
  * compiled into a table of pointers, which would need relocations. */
-static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic\0No-clip flight\0Movement speed";
+static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic\0No-clip flight\0Movement speed\0Jump height";
 static const char descs_blob[] =
     "Hearts stay full; max is never raised\0"
     "Wallet tops up to its current size\0"
     "Ammo refills to your current limits\0"
     "Magic refills to the current limit\0"
     "Left stick flies, ZR up, ZL down\0"
-    "Left / Right sets how fast Link moves";
+    "Left / Right sets how fast Link moves\0"
+    "Left / Right sets how high Link jumps";
 static const char tabs_blob[] = "Player\0Items\0World\0Teleport";
 static const char wlabels_blob[] = "Time of day\0Mark position\0Return to mark\0Switch age\0Free camera";
 static const char wdescs_blob[] =
@@ -179,6 +180,7 @@ static volatile int g_icount[ITEM_COUNT];   /* what the pouch holds, refreshed w
 extern volatile int g_tp_req;    /* set here, served on the game thread (cheats.h) */
 static volatile int g_cheat[8];  /* God, Rupees, Items, Magic, Flight, Free camera */
 static volatile int g_speed;     /* 0..3: 1x, 1.5x, 2x, 3x */
+static volatile int g_jump;      /* 0..3: 1x, 2x, 3x, 5x */
 static volatile int g_stk[4];    /* raw sticks: left x, y, right x, y (before the game sees them) */
 static volatile u64 g_held;      /* raw buttons held */
 
@@ -213,6 +215,10 @@ static void activate(int what)
         g_speed = (g_speed + 1) & 3;
     } else if (what == 60) {
         g_speed = (g_speed + 3) & 3;
+    } else if (what == 62) {
+        g_jump = (g_jump + 3) & 3;
+    } else if (what == 63) {
+        g_jump = (g_jump + 1) & 3;
     } else {
         g_cheat[what] = !g_cheat[what];
     }
@@ -255,7 +261,11 @@ static void menu_input_inner(u64 e)
             if (e & BIT(B_LEFT)) request(60);
             if (e & BIT(B_RIGHT)) request(61);
         }
-        if (e & BIT(B_A)) request(g_sel);
+        if (g_sel == 6) {
+            if (e & BIT(B_LEFT)) request(62);
+            if (e & BIT(B_RIGHT)) request(63);
+        }
+        if (e & BIT(B_A)) request(g_sel == 5 ? 61 : g_sel == 6 ? 63 : g_sel);
     } else if (g_tab == 1) {
         int s = g_isel;
         if (e & BIT(B_LEFT)) s = s > 0 ? s - 1 : ITEM_COUNT - 1;
@@ -740,19 +750,21 @@ static void paint_panel(void)
     fill(16, 72, PW - 32, 1, GOLD, 200);
 
     if (g_tab == 0) {
-        static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC, ICON_ROW_FLY, ICON_BOOTS_HOVER};
+        static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC, ICON_ROW_FLY, ICON_BOOTS_HOVER, ICON_BOOTS_HOVER};
         for (int i = 0; i < PLAYER_ROWS; i++) {
-            int y = 78 + i * 26;
-            if (i == g_sel) { fill(16, y, PW - 32, 25, GOLD, 60); box(16, y, PW - 32, 25, GOLD, 200); }
-            draw_icon(22, y + 1, 23, row_icon[i]);
-            text(54, y + 3, row_label(i), CREAM, 255);
-            if (i < 5) toggle_switch(PW - 24 - 44, y + 3, g_cheat[i]);
+            int y = 77 + i * 22;
+            if (i == g_sel) { fill(16, y, PW - 32, 21, GOLD, 60); box(16, y, PW - 32, 21, GOLD, 200); }
+            draw_icon(22, y + 1, 19, row_icon[i]);
+            text(50, y + 1, row_label(i), CREAM, 255);
+            if (i < 5) toggle_switch(PW - 24 - 44, y + 1, g_cheat[i]);
             else {
                 static const char sp_txt[] = "1x\0" "1.5x\0" "2x\0" "3x";
-                const char *t = nth(sp_txt, g_speed & 3);
-                text(PW - 24 - 44, y + 3, "<", GOLD, 255);
-                text(PW - 24 - 44 + (44 - text_w(t)) / 2, y + 3, t, g_speed ? 150 : 214, g_speed ? 226 : 207, g_speed ? 120 : 180, 255);
-                text(PW - 24 - text_w(">"), y + 3, ">", GOLD, 255);
+                static const char jp_txt[] = "1x\0" "2x\0" "3x\0" "5x";
+                int v = i == 5 ? g_speed & 3 : g_jump & 3;
+                const char *t = nth(i == 5 ? sp_txt : jp_txt, v);
+                text(PW - 24 - 44, y + 1, "<", GOLD, 255);
+                text(PW - 24 - 44 + (44 - text_w(t)) / 2, y + 1, t, v ? 150 : 214, v ? 226 : 207, v ? 120 : 180, 255);
+                text(PW - 24 - text_w(">"), y + 1, ">", GOLD, 255);
             }
         }
         fill(16, 236, PW - 32, 1, GOLD, 120);
