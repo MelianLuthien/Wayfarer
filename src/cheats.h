@@ -126,7 +126,7 @@ static void cheats_world(void)
     if (!lok || loading) return;
 
     void *ctx = (u8 *)pm + POUCH_CTX;
-    if (g_cheat[1]) {
+    if (g_cheat[3]) {   /* hash-based block: this is the magic meter (max 240 in the log) */
         int max = 0, cur = 0;
         FnGet get = (FnGet)(b + FN_GET);
         int ok1 = get(gd, &max, ctx, H_WALLET_MAX);
@@ -139,7 +139,7 @@ static void cheats_world(void)
             trace("rupee set to", 6, (u64)(long)max);
         }
     }
-    if (g_cheat[3]) {
+    if (g_cheat[1]) {   /* function-based block: this is the wallet (max 500 in the log) */
         int max = ((FnMagicMax)(b + FN_MAGIC_MAX))(pm);
         int cur = ((FnMagicCur)(b + FN_MAGIC_CUR))(pm, 0);
         trace("magic max", 7, (u64)(long)max);
