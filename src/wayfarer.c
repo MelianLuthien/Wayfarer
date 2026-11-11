@@ -12,6 +12,8 @@ typedef unsigned int u32;
 typedef unsigned char u8;
 
 #include "font.h"
+#include "icons.h"
+#include "iconblob.h"
 
 #define TITLE_ID        0x0400486024DEC000ull
 #define MAIN_RX_SIZE    0x3c47000ull   /* size of main's executable region */
@@ -100,7 +102,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.3"
+#define WF_VERSION "v261111.4"
 
 static u64 now_ms(void)
 {
@@ -769,7 +771,11 @@ void wf_init(void)
     wf_actor_orig = base + 0x3c4631c;
     t[9] = (u64)wf_actor_thunk; /* 0x848 */
     __asm__ volatile("dmb ish" ::: "memory");
-    dbg("[wayfarer] stage 3 loaded; press R3 for the menu\n");
+    /* size test for the embedded art: if the module loaded, these lines show the blob is mapped and readable */
+    dbgx("icons bytes", (u64)(wf_icon_blob_end - wf_icon_blob));
+    dbgx("icons count", ICON_COUNT);
+    dbgx("icons checksum", icons_checksum());
+    dbg("[wayfarer] " WF_VERSION " loaded; press R3 for the menu\n");
 }
 
 /* ---- module header: entry stub, MOD0, dynamic section ------------------ */

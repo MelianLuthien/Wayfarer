@@ -42,8 +42,12 @@ def main():
     os.makedirs(dist, exist_ok=True)
     elf = os.path.join(build, "wayfarer.elf")
 
+    # Pack the icon art into build/art/icons64.bin and src/icons.h (empty when there is no art yet).
+    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "packicons.py")], check=True)
+
     cmd = [
         args.zig, "cc", "-target", "aarch64-freestanding", "-mcpu=cortex_a57", "-O2",
+        "-I", os.path.join(build, "art"),
         "-ffreestanding", "-fno-builtin", "-fno-stack-protector", "-fno-pic", "-fno-pie",
         "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-Wall", "-Wextra",
         "-DWF_VARIANT=%d" % args.variant, "-nostdlib", "-static", "-Wl,-T," + os.path.join(ROOT, "src", "link.ld"),
