@@ -102,7 +102,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.7"
+#define WF_VERSION "v261111.8"
 
 static u64 now_ms(void)
 {
@@ -748,7 +748,7 @@ static void paint_panel(void)
             text(54, y + 3, row_label(i), CREAM, 255);
             if (i < 5) toggle_switch(PW - 24 - 44, y + 3, g_cheat[i]);
             else {
-                static const char sp_txt[] = "1x\01.5x\02x\03x";
+                static const char sp_txt[] = "1x\0" "1.5x\0" "2x\0" "3x";
                 const char *t = nth(sp_txt, g_speed & 3);
                 text(PW - 24 - 44, y + 3, "<", GOLD, 255);
                 text(PW - 24 - 44 + (44 - text_w(t)) / 2, y + 3, t, g_speed ? 150 : 214, g_speed ? 226 : 207, g_speed ? 120 : 180, 255);

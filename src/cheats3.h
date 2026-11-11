@@ -117,7 +117,7 @@ static void flight_step(u64 a)
     float dt = (float)el / 1000.f;
     if (dt > 0.05f) dt = 0.05f;
     float right = stick(g_stk[0]), forward = stick(g_stk[1]);
-    float vertical = (float)(((g_held >> 9) & 1) - ((g_held >> 8) & 1));   /* ZR up, ZL down */
+    float vertical = (float)((int)((g_held >> 9) & 1) - (int)((g_held >> 8) & 1));   /* ZR up, ZL down */
     float rx = 1.f, rz = 0.f;
     u64 view = gameplay_view();
     if (view && *(u64 *)view == g_base + VIEW_VT) {
@@ -172,7 +172,7 @@ void wf_cam_hook(u64 view)
     float ax[3][3] = {{cy, 0.f, -sy}, {-sp * sy, cp, -sp * cy}, {cp * sy, sp, cp * cy}};
     float step = dt * ((g_held & 1) ? 30.f : 8.f);   /* hold A for a faster camera */
     float right = stick(g_stk[0]), forward = stick(g_stk[1]);
-    float height = (float)(((g_held >> 9) & 1) - ((g_held >> 8) & 1));
+    float height = (float)((int)((g_held >> 9) & 1) - (int)((g_held >> 8) & 1));
     eye[1] += step * height;
     for (int i = 0; i < 3; i++) eye[i] += step * (right * ax[0][i] - forward * ax[2][i]);
     for (int row = 0; row < 3; row++) {
