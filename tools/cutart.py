@@ -49,14 +49,16 @@ SHEETS = {
                "quiver_3", "seedbag_1", "seedbag_2", "seedbag_3"]),
     9: (4, 3, ["stone_kokiri", "stone_goron", "stone_zora", "medal_forest", "medal_fire", "medal_water",
                "medal_shadow", "medal_spirit", "medal_light", "stone_agony", "card_gerudo", "skulltula"]),
+    # the missing-five upgrades sheet (file sheet08b_upgrades2.jpg, see FILES) and the brand sheet
+    12: (3, 2, ["wallet_adult", "wallet_giant", "magic_meter", "magic_extended", "double_defense", None]),
+    11: (2, 1, ["brand_logo", "brand_emblem"]),
 }
+FILES = {12: "sheet08b_upgrades2.jpg"}
 FRAME = ["frame_corner", "frame_edge", "header_cap", "header_mid"]  # sheet 1, 2 x 2, cut by quarter
 
 # Everything the menu will need that has no art yet. Each gets a placeholder tile.
-MISSING = ["wallet_adult", "wallet_giant", "magic_meter", "magic_extended", "double_defense",
-           "song_zelda", "song_epona", "song_saria", "song_sun", "song_time", "song_storms",
-           "song_minuet", "song_bolero", "song_serenade", "song_nocturne", "song_requiem", "song_prelude",
-           "brand_logo", "brand_emblem"]
+MISSING = ["song_zelda", "song_epona", "song_saria", "song_sun", "song_time", "song_storms",
+           "song_minuet", "song_bolero", "song_serenade", "song_nocturne", "song_requiem", "song_prelude"]
 
 
 def dilate(m, n=1):
@@ -239,6 +241,30 @@ def placeholder(name, size=ICON):
     return im
 
 
+# The song icons come from one game screenshot of the ocarina song ring (wayfarer-art/songs_screenshot.webp),
+# not from a generated sheet: the game's own round icons, cut out by their circle.
+SONG_SHOT = "songs_screenshot.webp"
+SONG_R = 60   # radius of the part kept; the highlight ring around the selected icon lies outside it
+SONGS = [("song_zelda", 160, 235), ("song_time", 328, 162), ("song_sun", 497, 140), ("song_storms", 665, 130),
+         ("song_epona", 833, 140), ("song_saria", 1000, 175),
+         ("song_minuet", 245, 402), ("song_bolero", 413, 355), ("song_serenade", 581, 328),
+         ("song_requiem", 749, 326), ("song_nocturne", 917, 350), ("song_prelude", 1085, 402)]
+
+
+def cut_songs(path):
+    src = Image.open(path).convert("RGB")
+    out = {}
+    k = 4   # supersampled circle mask for a smooth edge
+    for name, cx, cy in SONGS:
+        r = SONG_R
+        tile = src.crop((cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2)).convert("RGBA")
+        m = Image.new("L", (tile.width * k, tile.height * k), 0)
+        ImageDraw.Draw(m).ellipse([2 * k, 2 * k, (2 * r + 2) * k - 1, (2 * r + 2) * k - 1], fill=255)
+        tile.putalpha(m.resize(tile.size, Image.LANCZOS))
+        out[name] = tile.resize((ICON, ICON), Image.LANCZOS)
+    return out
+
+
 def main():
     os.makedirs(os.path.join(OUT, "full"), exist_ok=True)
     os.makedirs(os.path.join(OUT, "icon128"), exist_ok=True)
@@ -260,14 +286,25 @@ def main():
             manifest.append({"name": nm, "sheet": 1, "cell": cell, "placeholder": False, "full_size": list(img.size)})
             items.append((nm, fit(img), False))
     for num, (cols, rows, names) in SHEETS.items():
-        p = os.path.join(ART, "sheet%02d_frame.jpg" % num)
+        p = os.path.join(ART, FILES.get(num, "sheet%02d_frame.jpg" % num))
         if not os.path.exists(p):
             print("sheet", num, "not found, skipped")
             continue
         print("sheet", num)
         for nm, (img, cell) in cut_grid(p, cols, rows, names).items():
             save(nm, img, num, cell)
+    shot = os.path.join(ART, SONG_SHOT)
+    have = set()
+    if os.path.exists(shot):
+        for nm, ic in cut_songs(shot).items():
+            ic.save(os.path.join(OUT, "full", nm + ".png"))
+            ic.save(os.path.join(OUT, "icon128", nm + ".png"))
+            manifest.append({"name": nm, "sheet": None, "cell": None, "placeholder": False, "full_size": list(ic.size)})
+            items.append((nm, ic, False))
+            have.add(nm)
     for nm in MISSING:
+        if nm in have:
+            continue
         ph = placeholder(nm)
         ph.save(os.path.join(OUT, "icon128", nm + ".png"))
         manifest.append({"name": nm, "sheet": None, "cell": None, "placeholder": True})
