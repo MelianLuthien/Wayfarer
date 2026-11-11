@@ -103,8 +103,22 @@ extern char wf_thunk0[], wf_thunk1[], wf_thunk2[], wf_thunk3[], wf_thunk4[];
 
 /* ---- entry ------------------------------------------------------------ */
 
+/* Bisecting builds: 0 = empty init, 1 = log one line only, 2 = full (default). */
+#ifndef WF_VARIANT
+#define WF_VARIANT 2
+#endif
+#if WF_VARIANT == 0
+#define WF_INIT_SYM "_start"
+#else
+#define WF_INIT_SYM "wf_init"
+#endif
+
 void wf_init(void)
 {
+    if (WF_VARIANT == 1) {
+        dbg("[wayfarer] variant B alive\n");
+        return;
+    }
     u64 pid = 0;
     if (get_program_id(&pid) != 0 || pid != TITLE_ID) {
         dbg("[wayfarer] not the expected title; idle\n");
@@ -181,7 +195,7 @@ __asm__(
     "  .quad 5,  wf_strtab\n"          /* DT_STRTAB */
     "  .quad 10, 4\n"                  /* DT_STRSZ */
     "  .quad 4,  wf_hash\n"            /* DT_HASH */
-    "  .quad 12, wf_init\n"            /* DT_INIT */
+    "  .quad 12, " WF_INIT_SYM "\n"    /* DT_INIT */
     "  .quad 0,  0\n"                  /* DT_NULL */
 
     ".section .bss.modobj,\"aw\",@nobits\n"

@@ -33,10 +33,11 @@ def elf_sections(data):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--zig", default=os.environ.get("ZIG", "zig"))
+    ap.add_argument("--variant", type=int, default=2, help="0 empty init, 1 log only, 2 full")
     args = ap.parse_args()
 
     build = os.path.join(ROOT, "build")
-    dist = os.path.join(ROOT, "dist", "exefs")
+    dist = os.path.join(ROOT, "dist" if args.variant == 2 else "dist-variant%d" % args.variant, "exefs")
     os.makedirs(build, exist_ok=True)
     os.makedirs(dist, exist_ok=True)
     elf = os.path.join(build, "wayfarer.elf")
@@ -45,7 +46,7 @@ def main():
         args.zig, "cc", "-target", "aarch64-freestanding", "-mcpu=cortex_a57", "-O2",
         "-ffreestanding", "-fno-builtin", "-fno-stack-protector", "-fno-pic", "-fno-pie",
         "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-Wall", "-Wextra",
-        "-nostdlib", "-static", "-Wl,-T," + os.path.join(ROOT, "src", "link.ld"),
+        "-DWF_VARIANT=%d" % args.variant, "-nostdlib", "-static", "-Wl,-T," + os.path.join(ROOT, "src", "link.ld"),
         "-Wl,--build-id=none", "-o", elf, os.path.join(ROOT, "src", "wayfarer.c"),
     ]
     subprocess.run(cmd, check=True)
@@ -65,7 +66,9 @@ def main():
     bss_a, bss = sec(".bss")
     bss_end = max(bss_a + len(bss), data_a + len(dat))
     bss_start = (data_a + len(dat) + 0xFFF) & ~0xFFF
-    bss_size = bss_end - bss_start
+    # The NSO header counts bss from the end of the data segment (unaligned), not from the
+    # page-aligned start the linker uses; otherwise the loader maps too few pages.
+    bss_size = bss_end - (data_a + len(dat))
     assert text_a == 0 and ro_a % 0x1000 == 0 and data_a % 0x1000 == 0, (text_a, ro_a, data_a)
 
     build_id = hashlib.sha256(text + ro + dat).digest()[:0x20]
