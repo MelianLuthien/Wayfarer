@@ -100,14 +100,25 @@ static int get_program_id(u64 *out)
 /* ---- menu state ------------------------------------------------------- */
 
 #define ROWS 5
-static const char *const row_label[ROWS] = {"God Mode", "Infinite Rupees", "Infinite Items", "Infinite Magic", "Teleport"};
-static const char *const row_desc[ROWS] = {
-    "Hearts stay full; max is never raised",
-    "Wallet tops up to its current size",
-    "Ammo refills to your current limits",
-    "Magic refills to the current limit",
-    "Jump to key places (coming soon)",
-};
+/* No static pointer tables anywhere: the module has no relocations, so any
+ * absolute address stored in data would be wrong at runtime. */
+static const char *row_label(int i)
+{
+    if (i == 0) return "God Mode";
+    if (i == 1) return "Infinite Rupees";
+    if (i == 2) return "Infinite Items";
+    if (i == 3) return "Infinite Magic";
+    return "Teleport";
+}
+
+static const char *row_desc(int i)
+{
+    if (i == 0) return "Hearts stay full; max is never raised";
+    if (i == 1) return "Wallet tops up to its current size";
+    if (i == 2) return "Ammo refills to your current limits";
+    if (i == 3) return "Magic refills to the current limit";
+    return "Jump to key places (coming soon)";
+}
 
 static volatile int g_open;      /* menu visible */
 static volatile int g_sel;       /* selected row */
@@ -242,42 +253,48 @@ static void (*n_cbT2B)(void *, void *, void *, const int *, u64, int);
 static void (*n_cbB2T)(void *, u64, void *, void *, const int *, int);
 static void (*n_cbBarrier)(void *, int);
 
-typedef struct { const char *name; void **dst; } Proc;
-static const Proc procs[] = {
-    {"nvnQueuePresentTexture", (void **)&n_present},
-    {"nvnWindowBuilderSetTextures", (void **)&n_setTex},
-    {"nvnWindowInitialize", (void **)&n_winInit},
-    {"nvnWindowFinalize", (void **)&n_winFini},
-    {"nvnWindowGetCrop", (void **)&n_getCrop},
-    {"nvnTextureGetWidth", (void **)&n_texW},
-    {"nvnTextureGetHeight", (void **)&n_texH},
-    {"nvnTextureGetFormat", (void **)&n_texFmt},
-    {"nvnTextureGetTarget", (void **)&n_texTarget},
-    {"nvnTextureGetSamples", (void **)&n_texSamples},
-    {"nvnMemoryPoolBuilderSetDefaults", (void **)&n_mpbDefaults},
-    {"nvnMemoryPoolBuilderSetDevice", (void **)&n_mpbDev},
-    {"nvnMemoryPoolBuilderSetStorage", (void **)&n_mpbStorage},
-    {"nvnMemoryPoolBuilderSetFlags", (void **)&n_mpbFlags},
-    {"nvnMemoryPoolInitialize", (void **)&n_mpInit},
-    {"nvnMemoryPoolGetBufferAddress", (void **)&n_mpAddr},
-    {"nvnMemoryPoolMap", (void **)&n_mpMap},
-    {"nvnMemoryPoolFlushMappedRange", (void **)&n_mpFlush},
-    {"nvnMemoryPoolInvalidateMappedRange", (void **)&n_mpInval},
-    {"nvnSyncInitialize", (void **)&n_syncInit},
-    {"nvnSyncWait", (void **)&n_syncWait},
-    {"nvnCommandBufferInitialize", (void **)&n_cbInit},
-    {"nvnCommandBufferAddCommandMemory", (void **)&n_cbAddCmd},
-    {"nvnCommandBufferAddControlMemory", (void **)&n_cbAddCtl},
-    {"nvnCommandBufferBeginRecording", (void **)&n_cbBegin},
-    {"nvnCommandBufferEndRecording", (void **)&n_cbEnd},
-    {"nvnQueueSubmitCommands", (void **)&n_qSubmit},
-    {"nvnCommandBufferFenceSync", (void **)&n_cbFence},
-    {"nvnCommandBufferSetCopyRowStride", (void **)&n_cbStride},
-    {"nvnCommandBufferCopyTextureToBuffer", (void **)&n_cbT2B},
-    {"nvnCommandBufferCopyBufferToTexture", (void **)&n_cbB2T},
-    {"nvnCommandBufferBarrier", (void **)&n_cbBarrier},
-};
-#define NPROCS ((int)(sizeof(procs) / sizeof(procs[0])))
+#define R(name, var)                                                          \
+    do {                                                                       \
+        *(void **)&var = gp(dev, name);                                        \
+        if (!var) { dbg("[wayfarer] missing NVN function " name "\n"); return 0; } \
+    } while (0)
+
+static int resolve_nvn(void *dev, GetProc gp)
+{
+    R("nvnQueuePresentTexture", n_present);
+    R("nvnWindowBuilderSetTextures", n_setTex);
+    R("nvnWindowInitialize", n_winInit);
+    R("nvnWindowFinalize", n_winFini);
+    R("nvnWindowGetCrop", n_getCrop);
+    R("nvnTextureGetWidth", n_texW);
+    R("nvnTextureGetHeight", n_texH);
+    R("nvnTextureGetFormat", n_texFmt);
+    R("nvnTextureGetTarget", n_texTarget);
+    R("nvnTextureGetSamples", n_texSamples);
+    R("nvnMemoryPoolBuilderSetDefaults", n_mpbDefaults);
+    R("nvnMemoryPoolBuilderSetDevice", n_mpbDev);
+    R("nvnMemoryPoolBuilderSetStorage", n_mpbStorage);
+    R("nvnMemoryPoolBuilderSetFlags", n_mpbFlags);
+    R("nvnMemoryPoolInitialize", n_mpInit);
+    R("nvnMemoryPoolGetBufferAddress", n_mpAddr);
+    R("nvnMemoryPoolMap", n_mpMap);
+    R("nvnMemoryPoolFlushMappedRange", n_mpFlush);
+    R("nvnMemoryPoolInvalidateMappedRange", n_mpInval);
+    R("nvnSyncInitialize", n_syncInit);
+    R("nvnSyncWait", n_syncWait);
+    R("nvnCommandBufferInitialize", n_cbInit);
+    R("nvnCommandBufferAddCommandMemory", n_cbAddCmd);
+    R("nvnCommandBufferAddControlMemory", n_cbAddCtl);
+    R("nvnCommandBufferBeginRecording", n_cbBegin);
+    R("nvnCommandBufferEndRecording", n_cbEnd);
+    R("nvnQueueSubmitCommands", n_qSubmit);
+    R("nvnCommandBufferFenceSync", n_cbFence);
+    R("nvnCommandBufferSetCopyRowStride", n_cbStride);
+    R("nvnCommandBufferCopyTextureToBuffer", n_cbT2B);
+    R("nvnCommandBufferCopyBufferToTexture", n_cbB2T);
+    R("nvnCommandBufferBarrier", n_cbBarrier);
+    return 1;
+}
 
 /* Swapchain bookkeeping, filled by the wrapped window calls. */
 #define MAXTEX 8
@@ -458,7 +475,7 @@ static void paint_panel(void)
         int y = 42 + i * 28;
         if (i == g_sel) fill(10, y, PW - 20, 26, GOLD, 72);
         if (i == g_sel) text(16, y + 3, ">", GOLD, 255);
-        text(34, y + 3, row_label[i], CREAM, 255);
+        text(34, y + 3, row_label(i), CREAM, 255);
         if (i < 4) {
             const char *st = g_cheat[i] ? "ON" : "OFF";
             if (g_cheat[i]) text(PW - 20 - text_w(st), y + 3, st, 150, 226, 120, 255);
@@ -466,7 +483,7 @@ static void paint_panel(void)
         }
     }
     fill(16, 186, PW - 32, 1, GOLD, 120);
-    text(16, 190, row_desc[g_sel], 214, 207, 180, 255);
+    text(16, 190, row_desc(g_sel), 214, 207, 180, 255);
     text(16, 212, "A toggle      B / R3 close", 170, 168, 140, 255);
 
     if (g_dlg) {
@@ -565,20 +582,14 @@ u64 wf_nvn_load(void *dev, GetProc gp)
     if (!dev || !gp || done) return r;
     done = 1;
 
-    for (int i = 0; i < NPROCS; i++) {
-        *procs[i].dst = gp(dev, procs[i].name);
-        if (!*procs[i].dst) {
-            dbg("[wayfarer] missing NVN function: ");
-            dbg(procs[i].name);
-            dbg("\n");
-            return r;
-        }
-    }
+    if (!resolve_nvn(dev, gp)) return r;
     g_dev = dev;
 
-    static const u64 offs[4] = {0x0, 0x20, 0xa8, 0xb0};
-    void *orig[4] = {n_present, n_setTex, n_winInit, n_winFini};
-    void *wrap[4] = {(void *)wf_present, (void *)wf_setTex, (void *)wf_winInit, (void *)wf_winFini};
+    u64 offs[4];
+    offs[0] = 0x0; offs[1] = 0x20; offs[2] = 0xa8; offs[3] = 0xb0;
+    void *orig[4], *wrap[4];
+    orig[0] = (void *)n_present; orig[1] = (void *)n_setTex; orig[2] = (void *)n_winInit; orig[3] = (void *)n_winFini;
+    wrap[0] = (void *)wf_present; wrap[1] = (void *)wf_setTex; wrap[2] = (void *)wf_winInit; wrap[3] = (void *)wf_winFini;
     u64 *slot[4];
     for (int i = 0; i < 4; i++) {
         MemInfo mi;
