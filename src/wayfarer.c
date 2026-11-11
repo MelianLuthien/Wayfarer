@@ -102,7 +102,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.4"
+#define WF_VERSION "v261111.5"
 
 static u64 now_ms(void)
 {
@@ -129,18 +129,20 @@ static int world_running(void)
 
 #include "destinations.h"
 
-#define ROWS 5
+#define TABS 4
+#define PLAYER_ROWS 4
 /* No static pointer tables anywhere: the module has no relocations, so any
  * absolute address stored in data would be wrong at runtime. */
 /* Strings live in one blob and are found by walking it: a chain of ifs can be
  * compiled into a table of pointers, which would need relocations. */
-static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic\0Teleport";
+static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic";
 static const char descs_blob[] =
     "Hearts stay full; max is never raised\0"
     "Wallet tops up to its current size\0"
     "Ammo refills to your current limits\0"
-    "Magic refills to the current limit\0"
-    "Jump to key places on the map";
+    "Magic refills to the current limit";
+static const char tabs_blob[] = "Player\0Items\0World\0Teleport";
+static const char soon_blob[] = "Equipment and quest items\0Time, weather and camera";
 
 static const char *nth(const char *blob, int i)
 {
@@ -156,12 +158,12 @@ static volatile int g_sel;       /* selected row */
 static volatile int g_dlg;       /* warning dialog visible */
 static volatile int g_warned;    /* warning accepted this session */
 static volatile int g_pending;   /* row waiting for the warning */
-static volatile int g_page;      /* 0 main list, 1 teleport list */
+static volatile int g_tab;       /* 0 Player, 1 Items, 2 World, 3 Teleport */
 static volatile int g_tsel;      /* selected destination */
 extern volatile int g_tp_req;    /* set here, served on the game thread (cheats.h) */
 static volatile int g_cheat[4];  /* God, Rupees, Items, Magic (stage 3 will read these) */
 
-enum { B_A = 0, B_B = 1, B_R3 = 5, B_LEFT = 12, B_UP = 13, B_RIGHT = 14, B_DOWN = 15 };
+enum { B_A = 0, B_B = 1, B_R3 = 5, B_L = 6, B_R = 7, B_LEFT = 12, B_UP = 13, B_RIGHT = 14, B_DOWN = 15 };
 #define BIT(n) (1ull << (n))
 
 static void menu_input_inner(u64 e);
@@ -171,13 +173,24 @@ static void menu_input(u64 e)
     g_gen++;
 }
 
+/* what 0..3: flip that cheat; 4: teleport to the selected destination. */
+static void activate(int what)
+{
+    if (what == 4) {
+        g_tp_req = g_tsel + 1;
+        g_open = 0;
+        dbgx("teleport chosen", (u64)g_tsel);
+    } else {
+        g_cheat[what] = !g_cheat[what];
+    }
+}
+
 static void menu_input_inner(u64 e)
 {
     if (e & BIT(B_R3)) {
         if (!g_open && !world_running()) { dbg("[wayfarer] R3 ignored: the game is not running right now\n"); return; }
         g_open = !g_open;
         g_dlg = 0;
-        g_page = 0;
         if (g_open) dbg("[wayfarer] menu open\n"); else dbg("[wayfarer] menu closed\n");
         return;
     }
@@ -185,36 +198,32 @@ static void menu_input_inner(u64 e)
     if (g_dlg) {
         if (e & BIT(B_A)) {
             g_warned = 1;
-            if (g_pending == 4) { g_page = 1; g_tsel = 0; }
-            else g_cheat[g_pending] = !g_cheat[g_pending];
             g_dlg = 0;
+            activate(g_pending);
         } else if (e & BIT(B_B)) {
             g_dlg = 0;
         }
         return;
     }
-    if (g_page == 1) {
+    if (e & BIT(B_L)) g_tab = (g_tab + TABS - 1) % TABS;
+    if (e & BIT(B_R)) g_tab = (g_tab + 1) % TABS;
+    if (e & BIT(B_B)) { g_open = 0; return; }
+    if (g_tab == 0) {
+        if (e & BIT(B_UP)) g_sel = (g_sel + PLAYER_ROWS - 1) % PLAYER_ROWS;
+        if (e & BIT(B_DOWN)) g_sel = (g_sel + 1) % PLAYER_ROWS;
+        if (e & BIT(B_A)) {
+            if (!g_warned) { g_pending = g_sel; g_dlg = 1; }
+            else activate(g_sel);
+        }
+    } else if (g_tab == 3) {
         if (e & BIT(B_UP)) g_tsel = (g_tsel + TP_COUNT - 1) % TP_COUNT;
         if (e & BIT(B_DOWN)) g_tsel = (g_tsel + 1) % TP_COUNT;
         if (e & BIT(B_LEFT)) g_tsel = g_tsel >= 7 ? g_tsel - 7 : 0;
         if (e & BIT(B_RIGHT)) g_tsel = g_tsel + 7 < TP_COUNT ? g_tsel + 7 : TP_COUNT - 1;
-        if (e & BIT(B_B)) g_page = 0;
         if (e & BIT(B_A)) {
-            g_tp_req = g_tsel + 1;
-            g_open = 0;
-            g_page = 0;
-            dbgx("teleport chosen", (u64)g_tsel);
+            if (!g_warned) { g_pending = 4; g_dlg = 1; }
+            else activate(4);
         }
-        return;
-    }
-    if (e & BIT(B_UP)) g_sel = (g_sel + ROWS - 1) % ROWS;
-    if (e & BIT(B_DOWN)) g_sel = (g_sel + 1) % ROWS;
-    if (e & BIT(B_B)) g_open = 0;
-    if (e & BIT(B_A)) {
-        int r = g_sel;
-        if (!g_warned) { g_pending = r; g_dlg = 1; }
-        else if (r < 4) g_cheat[r] = !g_cheat[r];
-        else { g_page = 1; g_tsel = 0; }
     }
 }
 
@@ -398,7 +407,7 @@ static void wf_winFini(void *win)
 }
 
 /* GPU-visible scratch: command memory in the first 0x10000, then the panel pixels. */
-#define POOL_BYTES 0x800000
+#define POOL_BYTES 0x980000
 #define BUF_OFF    0x10000
 static u8 g_poolmem[POOL_BYTES] __attribute__((aligned(4096)));
 static u8 g_pool[0x400] __attribute__((aligned(64)));
@@ -452,8 +461,9 @@ static void rec_submit(void *queue, int i)
 #ifndef WF_READBACK
 #define WF_READBACK 0
 #endif
-#define PW 330
-#define PH 236
+/* One fixed logical size; only the pixel scale follows the screen. */
+#define PW 480
+#define PH 300
 
 static u8 *g_px;       /* panel pixels (CPU copy) */
 static int g_pitch;    /* bytes per row */
@@ -536,56 +546,166 @@ static void box(int x, int y, int w, int h, int r, int g, int b, int a)
     fill(x + w - 1, y, 1, h, r, g, b, a);
 }
 
+/* Fallbacks so a checkout without art still builds (icon 0 is drawn when art exists). */
+#ifndef ICON_TAB_PLAYER
+#define ICON_TAB_PLAYER 0
+#define ICON_ROW_GOD 0
+#define ICON_ROW_RUPEES 0
+#define ICON_ROW_ITEMS 0
+#define ICON_ROW_MAGIC 0
+#endif
+#ifndef ICON_COUNT
+#define ICON_COUNT 0
+#define ICON_PX 64
+#endif
+
+static int px_a(const u8 *src, int x, int y, int c)
+{
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x >= ICON_PX) x = ICON_PX - 1;
+    if (y >= ICON_PX) y = ICON_PX - 1;
+    return src[(y * ICON_PX + x) * 4 + c];
+}
+
+/* Draws icon idx into a sz x sz logical square: box filter when shrinking, bilinear when growing.
+ * Colours are weighted by alpha so transparent pixels do not leak their colour into the edges. */
+static void draw_icon(int lx, int ly, int sz, int idx)
+{
+    if (idx < 0 || idx >= ICON_COUNT) return;
+    const u8 *src = wf_icon_blob + (long)idx * ICON_PX * ICON_PX * 4;
+    int d = sz * g_S;
+    for (int y = 0; y < d; y++) {
+        for (int x = 0; x < d; x++) {
+            long sa = 0, sr = 0, sg = 0, sb = 0, wsum = 0;
+            if (d < ICON_PX) {
+                int x0 = x * ICON_PX / d, x1 = (x + 1) * ICON_PX / d;
+                int y0 = y * ICON_PX / d, y1 = (y + 1) * ICON_PX / d;
+                if (x1 <= x0) x1 = x0 + 1;
+                if (y1 <= y0) y1 = y0 + 1;
+                for (int yy = y0; yy < y1; yy++)
+                    for (int xx = x0; xx < x1; xx++) {
+                        int a = px_a(src, xx, yy, 3);
+                        sa += a; wsum++;
+                        sr += px_a(src, xx, yy, 0) * a;
+                        sg += px_a(src, xx, yy, 1) * a;
+                        sb += px_a(src, xx, yy, 2) * a;
+                    }
+                if (!sa) continue;
+                blend(lx * g_S + x, ly * g_S + y, (int)(sr / sa), (int)(sg / sa), (int)(sb / sa), (int)(sa / wsum));
+            } else {
+                int sx = ((2 * x + 1) * ICON_PX * 128) / d - 128;
+                int sy = ((2 * y + 1) * ICON_PX * 128) / d - 128;
+                int xi = sx >> 8, fx = sx & 255, yi = sy >> 8, fy = sy & 255;
+                for (int k = 0; k < 4; k++) {
+                    int ox = xi + (k & 1), oy = yi + (k >> 1);
+                    int w = ((k & 1) ? fx : 256 - fx) * ((k >> 1) ? fy : 256 - fy) >> 8;
+                    int a = px_a(src, ox, oy, 3) * w;
+                    sa += a; wsum += w;
+                    sr += px_a(src, ox, oy, 0) * (long)a;
+                    sg += px_a(src, ox, oy, 1) * (long)a;
+                    sb += px_a(src, ox, oy, 2) * (long)a;
+                }
+                if (!sa) continue;
+                blend(lx * g_S + x, ly * g_S + y, (int)(sr / sa), (int)(sg / sa), (int)(sb / sa), (int)(sa / (wsum ? wsum : 1)));
+            }
+        }
+    }
+}
+
+/* A round button glyph (like the game's A/B/L/R prompts), 18 logical px wide. */
+static void badge(int lx, int ly, char ch)
+{
+    int d = 18 * g_S;
+    for (int y = 0; y < d; y++)
+        for (int x = 0; x < d; x++) {
+            int dx = 2 * x + 1 - d, dy = 2 * y + 1 - d;
+            if (dx * dx + dy * dy <= d * d) blend(lx * g_S + x, ly * g_S + y, GOLD, 255);
+        }
+    char s[2] = {ch, 0};
+    text(lx + (18 - text_w(s)) / 2, ly, s, 22, 40, 26, 255);
+}
+
+/* One hint: one or two button glyphs, then a label. Returns the x where the next hint starts. */
+static int hint(int x, const char *keys, const char *label)
+{
+    for (; *keys; keys++) { badge(x, 266, *keys); x += 20; }
+    text(x + 2, 266, label, 214, 207, 180, 255);
+    return x + 2 + text_w(label) + 18;
+}
+
+static void toggle_switch(int lx, int ly, int on)
+{
+    fill(lx, ly, 44, 20, on ? 70 : 62, on ? 150 : 62, on ? 60 : 56, 255);
+    box(lx, ly, 44, 20, GOLD, 200);
+    fill(on ? lx + 26 : lx + 2, ly + 2, 16, 16, CREAM, 255);
+}
+
 static void paint_panel(void)
 {
+    static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC};
     fill(0, 0, PW, PH, 22, 40, 26, WF_READBACK ? 214 : 255);
     box(0, 0, PW, PH, GOLD, 255);
     box(1, 1, PW - 2, PH - 2, GOLD, 255);
     box(4, 4, PW - 8, PH - 8, 140, 116, 52, 170);
 
-    text_c(10, "WAYFARER", GOLD);
-    text(PW - 14 - text_w(WF_VERSION), 12, WF_VERSION, 150, 140, 105, 255);
-    fill(16, 34, PW - 32, 1, GOLD, 200);
+    text(18, 10, "WAYFARER", GOLD, 255);
+    text(PW - 18 - text_w(WF_VERSION), 12, WF_VERSION, 150, 140, 105, 255);
 
-    if (g_page == 1) {
+    for (int t = 0; t < TABS; t++) {
+        int x = 16 + t * 113, y = 34, sel = t == g_tab;
+        if (sel) { fill(x, y, 108, 36, GOLD, 72); fill(x, y + 34, 108, 2, GOLD, 255); }
+        else fill(x, y, 108, 36, 0, 0, 0, 70);
+        draw_icon(x + 6, y + 4, 28, ICON_TAB_PLAYER + t);
+        if (sel) text(x + 40, y + 9, nth(tabs_blob, t), CREAM, 255);
+        else text(x + 40, y + 9, nth(tabs_blob, t), 170, 168, 140, 255);
+    }
+    fill(16, 72, PW - 32, 1, GOLD, 200);
+
+    if (g_tab == 0) {
+        for (int i = 0; i < PLAYER_ROWS; i++) {
+            int y = 80 + i * 44;
+            if (i == g_sel) { fill(16, y, PW - 32, 42, GOLD, 60); box(16, y, PW - 32, 42, GOLD, 200); }
+            draw_icon(24, y + 5, 32, row_icon[i]);
+            text(66, y + 3, row_label(i), CREAM, 255);
+            text(66, y + 21, row_desc(i), 170, 168, 140, 255);
+            toggle_switch(PW - 24 - 44, y + 11, g_cheat[i]);
+        }
+    } else if (g_tab == 3) {
         int top = g_tsel - 3;
-        if (top > TP_COUNT - 8) top = TP_COUNT - 8;
+        if (top > TP_COUNT - 7) top = TP_COUNT - 7;
         if (top < 0) top = 0;
-        for (int k = 0; k < 8; k++) {
-            int i = top + k, y = 40 + k * 20;
-            if (i == g_tsel) { fill(10, y, PW - 20, 20, GOLD, 72); text(16, y + 1, ">", GOLD, 255); }
-            text(34, y + 1, nth(tp_names, i), CREAM, 255);
+        for (int k = 0; k < 7; k++) {
+            int i = top + k, y = 80 + k * 25;
+            if (i == g_tsel) { fill(16, y, PW - 32, 24, GOLD, 72); text(24, y + 3, ">", GOLD, 255); }
+            text(46, y + 3, nth(tp_names, i), CREAM, 255);
         }
-        if (top > 0) text(PW - 24, 40, "^", GOLD, 255);
-        if (top + 8 < TP_COUNT) text(PW - 24, 40 + 7 * 20, "v", GOLD, 255);
-        fill(16, 204, PW - 32, 1, GOLD, 120);
-        text(16, 210, "A go    B back    L/R page", 170, 168, 140, 255);
-        goto after_rows;
+        /* scroll thumb */
+        fill(PW - 22, 80, 4, 174, 0, 0, 0, 90);
+        fill(PW - 22, 80 + (174 - 24) * g_tsel / (TP_COUNT - 1), 4, 24, GOLD, 220);
+    } else {
+        draw_icon((PW - 64) / 2, 102, 64, ICON_TAB_PLAYER + g_tab);
+        text_c(176, "Coming soon", GOLD);
+        text_c(200, nth(soon_blob, g_tab - 1), 170, 168, 140);
     }
-    for (int i = 0; i < ROWS; i++) {
-        int y = 42 + i * 28;
-        if (i == g_sel) fill(10, y, PW - 20, 26, GOLD, 72);
-        if (i == g_sel) text(16, y + 3, ">", GOLD, 255);
-        text(34, y + 3, row_label(i), CREAM, 255);
-        if (i < 4) {
-            const char *st = g_cheat[i] ? "ON" : "OFF";
-            if (g_cheat[i]) text(PW - 20 - text_w(st), y + 3, st, 150, 226, 120, 255);
-            else text(PW - 20 - text_w(st), y + 3, st, 160, 160, 140, 255);
-        }
+
+    fill(16, 260, PW - 32, 1, GOLD, 120);
+    {
+        int x = 18;
+        x = hint(x, "A", g_tab == 3 ? "Go" : "Select");
+        x = hint(x, "B", "Close");
+        x = hint(x, "LR", "Tab");
+        if (g_tab == 3) text(x, 266, "Left / Right: page", 170, 168, 140, 255);
     }
-    fill(16, 186, PW - 32, 1, GOLD, 120);
-    text(16, 190, row_desc(g_sel), 214, 207, 180, 255);
-    text(16, 212, "A toggle      B / R3 close", 170, 168, 140, 255);
-after_rows:
 
     if (g_dlg) {
-        fill(10, 40, PW - 20, 142, 8, 16, 10, 240);
-        box(10, 40, PW - 20, 142, GOLD, 255);
-        text_c(52, "Cheats are experimental", GOLD);
-        text_c(78, "They can crash the game or damage", CREAM);
-        text_c(96, "your save. Use a copy of your save.", CREAM);
-        text_c(130, "A   Accept for this session", 150, 226, 120);
-        text_c(152, "B   Cancel", 200, 180, 160);
+        fill(40, 88, PW - 80, 150, 8, 16, 10, 245);
+        box(40, 88, PW - 80, 150, GOLD, 255);
+        text_c(100, "Cheats are experimental", GOLD);
+        text_c(128, "They can crash the game or damage", CREAM);
+        text_c(146, "your save. Use a copy of your save.", CREAM);
+        text_c(184, "A   Accept for this session", 150, 226, 120);
+        text_c(206, "B   Cancel", 200, 180, 160);
     }
 }
 
