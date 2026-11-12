@@ -75,6 +75,7 @@ static u64 gameplay_view(void)
 static const float speed_mul[4] = {1.0f, 1.5f, 2.0f, 3.0f};
 static const float jump_mul[4] = {1.0f, 2.0f, 3.0f, 5.0f};
 static u64 g_sp_actor;
+static int g_clamp_log;
 static float g_sp_prev[3], g_sp_pdy;
 
 static void speed_step(u64 a)
@@ -95,16 +96,15 @@ static void speed_step(u64 a)
          * past a limit it plays the freefall animation and hurts. Holding it down keeps a fall a gentle float. */
         if (falling && !jumping) {
             float *vy = (float *)(c + 0x2d4), *ay = (float *)(a + 0x38c), *by = (float *)(a + 0x3a4);   /* the actor keeps copies */
-            static int clamp_log;
-            if (clamp_log++ % 20 == 0) {
-                dbgx("fall speed before clamp: controller bits", *(u32 *)vy);
-                dbgx("fall speed before clamp: actor bits", *(u32 *)ay);
-                dbgx("fall counter at actor+0x6ac", *(u32 *)(a + 0x6ac));
+            if (g_clamp_log < 60) {   /* every frame of the start of a fall: what does the game recompute after our clamp? */
+                dbgx("fall frame: actor38c bits", *(u32 *)ay);
+                dbgx("fall frame: ctl2d4 bits", *(u32 *)vy);
             }
+            g_clamp_log++;
             if (*vy < -3.5f) *vy = -3.5f;
             if (*ay < -3.5f) *ay = -3.5f;
             if (*by < -3.5f) *by = -3.5f;
-        }
+        } else if (!falling) g_clamp_log = 0;
         if ((moving || jumping || falling) && (d2 + dy * dy < 1.0f || (falling && !jumping && d2 < 1.0f && dy > -8.0f))) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));
             float m = moving ? speed_mul[g_speed & 3] : 1.0f, mv = m;
