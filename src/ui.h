@@ -386,24 +386,24 @@ static void sel_box(float x, float y, float w, float h)
     rr(x, y, w, h, 3, 1.5f, WOOD, WOOD, 255);
 }
 
-/* A wooden toggle, 44 x 18, like a carved wooden slider: dark rim, plank inside, round wooden knob. */
+/* A wooden toggle, 40 x 16, like a carved wooden slider: dark rim, plank inside, round wooden knob. */
 static void slider(int lx, float ly, int on)
 {
-    float fx = (float)lx, fy = (float)ly;
-    rr(fx, fy + 0.8f, 44, 18, 9, 0, 0, 0, 70);                                          /* drop shadow */
-    rr(fx, fy, 44, 18, 9, 0, 0x6b3d1c, 0x3a2010, 255);                                  /* rim */
-    rr(fx + 1.6f, fy + 1.6f, 40.8f, 14.8f, 7.4f, 0, on ? 0xf2b25e : 0x9a7048, on ? 0xd98a3a : 0x6e4a2c, 255);   /* plank */
-    static const float gy[4] = {5.5f, 8.0f, 10.5f, 13.0f};                              /* wood grain */
-    static const float gx[4] = {10.0f, 17.0f, 8.0f, 14.0f};
-    static const float gw[4] = {22.0f, 18.0f, 26.0f, 20.0f};
-    for (int k = 0; k < 4; k++) rr(fx + gx[k], fy + gy[k], gw[k], 0.7f, 0.35f, 0, 0x5a2e10, 0x5a2e10, on ? 70 : 90);
-    rr(fx + 3.5f, fy + 2.4f, 37, 4, 2, 0, 0xffffff, 0xffe0a0, on ? 80 : 40);            /* sheen */
-    rr(fx + 1.6f, fy + 1.6f, 40.8f, 14.8f, 7.4f, 1.2f, 0x4a2a14, 0x4a2a14, 150);        /* inner shadow */
-    float kx = fx + (on ? 34.5f : 9.5f), ky = fy + 9.0f;
-    disc(kx, ky + 1.0f, 7.8f, 0, 0, 0, 90);
-    disc(kx, ky, 7.8f, 0x8a5224, 0x5a3014, 0x3a2010, 255);                              /* knob rim */
-    disc(kx, ky, 6.4f, 0xffd98f, 0xeaa04a, 0xb8702a, 255);                              /* knob */
-    rr(kx - 3.5f, ky - 4.6f, 5.5f, 1.6f, 0.8f, 0, 0xffffff, 0xffffff, 110);             /* knob glint */
+    float fx = (float)lx, fy = ly;
+    rr(fx, fy + 0.8f, 40, 16, 8, 0, 0, 0, 70);                                          /* drop shadow */
+    rr(fx, fy, 40, 16, 8, 0, 0x6b3d1c, 0x3a2010, 255);                                  /* rim */
+    rr(fx + 1.5f, fy + 1.5f, 37, 13, 6.5f, 0, on ? 0xf2b25e : 0x9a7048, on ? 0xd98a3a : 0x6e4a2c, 255);   /* plank */
+    static const float gy[3] = {5.0f, 8.0f, 11.0f};                                     /* wood grain */
+    static const float gx[3] = {9.0f, 15.0f, 8.0f};
+    static const float gw[3] = {20.0f, 16.0f, 23.0f};
+    for (int k = 0; k < 3; k++) rr(fx + gx[k], fy + gy[k], gw[k], 0.7f, 0.35f, 0, 0x5a2e10, 0x5a2e10, on ? 70 : 90);
+    rr(fx + 3.5f, fy + 2.2f, 33, 3.5f, 1.7f, 0, 0xffffff, 0xffe0a0, on ? 80 : 40);      /* sheen */
+    rr(fx + 1.5f, fy + 1.5f, 37, 13, 6.5f, 1.2f, 0x4a2a14, 0x4a2a14, 150);              /* inner shadow */
+    float kx = fx + (on ? 31.0f : 9.0f), ky = fy + 8.0f;
+    disc(kx, ky + 1.0f, 7.0f, 0, 0, 0, 90);
+    disc(kx, ky, 7.0f, 0x8a5224, 0x5a3014, 0x3a2010, 255);                              /* knob rim */
+    disc(kx, ky, 5.7f, 0xffd98f, 0xeaa04a, 0xb8702a, 255);                              /* knob */
+    rr(kx - 3.0f, ky - 4.0f, 5.0f, 1.5f, 0.75f, 0, 0xffffff, 0xffffff, 110);            /* knob glint */
 }
 
 /* "‹ 2x ›", right-aligned at logical rx. */
@@ -423,11 +423,11 @@ static int hint(int x, const char *keys, const char *label)
 {
     for (; *keys; keys++) {
         char s[2] = {*keys, 0};
-        plate((float)x, 277.5f, 17, 17, 8.5f);
-        text(3, x + (17 - text_w(3, s)) / 2, 572, s, EDGE, 255);
-        x += 21;
+        plate((float)x, 282.0f, 15, 15, 7.5f);
+        text(3, x + (15 - text_w(3, s)) / 2, 579, s, EDGE, 255);
+        x += 19;
     }
-    text(1, x, 572, label, FOOTC, 255);
+    text(1, x, 579, label, FOOTC, 255);
     return x + text_w(1, label) + 16;
 }
 
@@ -439,40 +439,40 @@ static void paint_panel(void)
 
     g_track = 4;
 #if LOGO_W > 0
-    draw_logo(46, 35, 21);
+    draw_logo(46, 38, 20);
 #else
     text(2, 48, 95, "WAYFARER", WOOD, 255);
 #endif
     g_track = 0;
-    text_r(3, 492, 94, WF_VERSION, 0x7a6234);
+    text_r(3, 492, 96, WF_VERSION, 0x7a6234);
 
     for (int t = 0; t < TABS; t++) {
         float x = 46.0f + (float)t * 113.5f;
         if (t == g_tab) {
-            plate(x, 58, 107.5f, 32, 16);
+            plate(x, 64, 107.5f, 28, 14);
         } else {
-            rr(x, 58, 107.5f, 32, 16, 0, WOOD, WOOD, 41);
+            rr(x, 64, 107.5f, 28, 14, 0, WOOD, WOOD, 41);
         }
-        draw_icon((int)(x + 4.5f), 62, 24, ICON_TAB_PLAYER + t);
-        text(0, (int)(x + 35.0f), 148, nth(tabs_blob, t), t == g_tab ? EDGE : DESC, 255);
+        draw_icon((int)(x + 4.0f), 68, 20, ICON_TAB_PLAYER + t);
+        text(0, (int)(x + 32.0f), 156, nth(tabs_blob, t), t == g_tab ? EDGE : DESC, 255);
     }
-    fill(46, 95, 448, 1, BRASS, 204);
+    fill(46, 98, 448, 1, BRASS, 204);
 
     if (g_tab == 0) {
         static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC, ICON_ROW_FLY, ICON_ROW_CHICKEN, ICON_ROW_SPEED, ICON_ROW_JUMP};
         for (int i = 0; i < PLAYER_ROWS; i++) {
-            int y = 100 + i * 19;
+            int y = 103 + i * 19;
             if (i == g_sel) sel_box(46, (float)y, 448, 19);
             draw_icon(52, y + 1, 17, row_icon[i]);
             text(0, 79, 2 * y + 19, row_label(i), INK, 255);
-            if (i < 6) slider(444, (float)y + 0.5f, g_cheat[i == 5 ? 6 : i] ? 1 : 0);
+            if (i < 6) slider(450, (float)y + 1.5f, g_cheat[i == 5 ? 6 : i] ? 1 : 0);
             else {
                 static const char sp_txt[] = "1x\0" "1.5x\0" "2x\0" "3x";
                 static const char jp_txt[] = "1x\0" "2x\0" "3x\0" "5x";
                 selector(488, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
             }
         }
-        text(1, 48, 526, row_desc(g_sel), DESC, 255);
+        text(1, 48, 532, row_desc(g_sel), DESC, 255);
     } else if (g_tab == 1) {
         int top = g_isel / 12 - 1, rows = (ITEM_COUNT + 11) / 12;
         if (top > rows - 4) top = rows - 4;
@@ -481,7 +481,7 @@ static void paint_panel(void)
             for (int c = 0; c < 12; c++) {
                 int i = (top + r) * 12 + c;
                 if (i >= ITEM_COUNT) break;
-                int x = 46 + (c * 412 + 5) / 11, y = 101 + r * 37, have = g_icount[i] > 0;
+                int x = 46 + (c * 412 + 5) / 11, y = 104 + r * 37, have = g_icount[i] > 0;
                 float fx = (float)x, fy = (float)y;
                 rr(fx, fy + 1, 36, 36, 3, 0, 0xfff4d6, 0xfff4d6, 150);          /* light edge under the slot */
                 if (i == g_isel) {
@@ -519,24 +519,24 @@ static void paint_panel(void)
                 while (*w) st[k++] = *w++;
                 st[k] = 0;
             }
-            text(1, 48, 526, nth(item_labels, g_isel), DESC, 255);
-            text_r(1, 492, 526, st, g_icount[g_isel] > 0 ? GREEN : DESC);
+            text(1, 48, 532, nth(item_labels, g_isel), DESC, 255);
+            text_r(1, 492, 532, st, g_icount[g_isel] > 0 ? GREEN : DESC);
         }
     } else if (g_tab == 3) {
         int top = g_tsel - 3;
         if (top > TP_COUNT - 7) top = TP_COUNT - 7;
         if (top < 0) top = 0;
         for (int k = 0; k < 7; k++) {
-            int i = top + k, y = 101 + k * 24;
-            if (i == g_tsel) { sel_box(46, (float)y, 436, 24); arrow(58, (float)y + 7, WOOD); }
-            text(0, 80, 2 * y + 24, nth(tp_names, i), INK, 255);
+            int i = top + k, y = 104 + k * 23;
+            if (i == g_tsel) { sel_box(46, (float)y, 436, 23); arrow(58, (float)y + 7, WOOD); }
+            text(0, 80, 2 * y + 23, nth(tp_names, i), INK, 255);
         }
-        rr(490, 101, 4, 166, 2, 0, WOOD, WOOD, 51);
-        rr(490, 101.0f + (float)(166 - 36) * (float)g_tsel / (float)(TP_COUNT - 1), 4, 36, 2, 0, WOOD, WOOD, 255);
+        rr(490, 104, 4, 161, 2, 0, WOOD, WOOD, 51);
+        rr(490, 104.0f + (float)(161 - 36) * (float)g_tsel / (float)(TP_COUNT - 1), 4, 36, 2, 0, WOOD, WOOD, 255);
     } else if (g_tab == 2) {
         static const u8 wicon[WORLD_ROWS] = {ICON_ROW_TIME, ICON_ROW_MARK, ICON_ROW_RETURN, ICON_ROW_AGE, ICON_ROW_CAMERA};
         for (int i = 0; i < WORLD_ROWS; i++) {
-            int y = 101 + i * 28;
+            int y = 104 + i * 28;
             if (i == g_wsel) sel_box(46, (float)y, 448, 26);
             draw_icon(52, y + 3, 19, wicon[i]);
             text(0, 79, 2 * y + 26, nth(wlabels_blob, i), INK, 255);
@@ -547,19 +547,19 @@ static void paint_panel(void)
                 t[2] = ':'; t[3] = '0'; t[4] = '0'; t[5] = 0;
                 selector(488, 2 * y + 26, t);
             } else if (i == 4) {
-                slider(444, y + 4, g_cheat[5] ? 1 : 0);
+                slider(450, (float)y + 5, g_cheat[5] ? 1 : 0);
             }
         }
-        text(1, 48, 526, nth(wdescs_blob, g_wsel), DESC, 255);
+        text(1, 48, 532, nth(wdescs_blob, g_wsel), DESC, 255);
     }
 
-    fill(46, 273, 448, 1, BRASS, 204);
+    fill(46, 277, 448, 1, BRASS, 204);
     {
         int x = 48;
         x = hint(x, "A", g_tab == 3 ? "Go" : g_tab == 1 ? "Toggle" : "Select");
         x = hint(x, "B", "Close");
         x = hint(x, "LR", "Tab");
-        if (g_tab == 3) text(1, x, 572, "Left / Right: page", DESC, 255);
+        if (g_tab == 3) text(1, x, 579, "Left / Right: page", DESC, 255);
         if (g_tab == 1 && ITEM_IS_QTY(g_isel)) { x = hint(x, "X", "More"); x = hint(x, "Y", "Less"); }
     }
 
