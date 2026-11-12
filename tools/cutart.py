@@ -55,7 +55,7 @@ SHEETS = {
     11: (2, 1, ["brand_logo", "brand_emblem"]),
 }
 FILES = {12: "sheet08b_upgrades2.jpg"}
-EXTRAS = ["row_speed", "row_jump", "row_chicken"]   # wayfarer-art/<name>.png, made by hand
+EXTRAS = ["row_speed", "row_jump", "row_chicken", "row_star"]   # wayfarer-art/<name>.png, made by hand
 FRAME = ["frame_corner", "frame_edge", "header_cap", "header_mid"]  # sheet 1, 2 x 2, cut by quarter
 
 # Everything the menu will need that has no art yet. Each gets a placeholder tile.

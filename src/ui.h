@@ -276,6 +276,7 @@ static void text_r(int f, int rx, int cy2, const char *s, u32 col)
 #define ICON_ROW_SPEED 0
 #define ICON_ROW_JUMP 0
 #define ICON_ROW_CHICKEN 0
+#define ICON_ROW_STAR 0
 #define ICON_SWORD_KOKIRI 0
 #endif
 #ifndef ICON_COUNT
@@ -592,7 +593,7 @@ static void paint_panel(void)
             int i = top + k, y = 104 + k * 21;
             if (i == g_tsel) { sel_box(46, (float)y, 436, 21); arrow(58, (float)y + 6, WOOD); }
             text(0, 80, 2 * y + 21, nth(tp_names, g_tlist[i]), INK, 255);
-            if ((g_tfav >> g_tlist[i]) & 1) disc(468, (float)y + 10.5f, 4.5f, 0xfff0b0, GOLDC, 0x8a6a1c, 255);
+            if ((g_tfav >> g_tlist[i]) & 1) draw_icon(458, y + 1, 19, ICON_ROW_STAR);
         }
         rr(490, 104, 4, 147, 2, 0, WOOD, WOOD, 51);
         rr(490, 104.0f + (float)(147 - 36) * (float)g_tsel / (float)(TP_COUNT - 1), 4, 36, 2, 0, WOOD, WOOD, 255);
