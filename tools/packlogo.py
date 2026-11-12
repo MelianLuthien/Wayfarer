@@ -7,16 +7,36 @@ ink first. Without the art (fresh checkout) LOGO_W is 0 and the menu writes the 
 """
 import os
 
-from PIL import Image
+import numpy as np
+from PIL import Image, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ART = os.path.join(ROOT, "build", "art")
+
+
+def defringe(im):
+    """The sheet was keyed from a magenta background, so the logo has a magenta rim. Drop the rim
+    (pixels that lean magenta), keep the dark outline, soften the new edge and take the leftover tint out."""
+    a = np.array(im).astype(float)
+    r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
+    lean = (r - g > 20) & (b - g > 10)                 # leans magenta
+    fringe = lean & ((r > 85) | (al < 170))            # the bright or see-through ones are the keyed rim
+    a[..., 3] = np.where(fringe, 0, al)
+    soft = np.array(Image.fromarray(a[..., 3].astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.6))).astype(float)
+    a[..., 3] = np.minimum(a[..., 3], soft * 1.2)
+    ol = lean & ~fringe                                # the plum outline: make it dark brown
+    lum = (r + b) / 2
+    a[..., 0] = np.where(ol, lum * 0.9 + 8, a[..., 0])
+    a[..., 1] = np.where(ol, lum * 0.5 + 4, a[..., 1])
+    a[..., 2] = np.where(ol, lum * 0.35 + 3, a[..., 2])
+    return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
 W = 288
 src = os.path.join(ART, "full", "brand_logo.png")
 blob, lw, lh = b"", 0, 0
 if os.path.exists(src):
     im = Image.open(src).convert("RGBA")
     im = im.crop((0, 0, im.width - 8, im.height))      # the sheet has a stray edge line on the right
+    im = defringe(im)
     a = im.split()[-1].point(lambda v: 255 if v > 24 else 0)
     im = im.crop(a.getbbox())
     lw, lh = W, round(im.height * W / im.width)
