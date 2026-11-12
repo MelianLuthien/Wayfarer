@@ -94,8 +94,16 @@ static void speed_step(u64 a)
         /* The game's own downward speed (controller +0x2d4, in units per second) keeps growing the longer you fall;
          * past a limit it plays the freefall animation and hurts. Holding it down keeps a fall a gentle float. */
         if (falling && !jumping) {
-            float *vy = (float *)(c + 0x2d4);
+            float *vy = (float *)(c + 0x2d4), *ay = (float *)(a + 0x38c), *by = (float *)(a + 0x3a4);   /* the actor keeps copies */
+            static int clamp_log;
+            if (clamp_log++ % 20 == 0) {
+                dbgx("fall speed before clamp: controller bits", *(u32 *)vy);
+                dbgx("fall speed before clamp: actor bits", *(u32 *)ay);
+                dbgx("fall counter at actor+0x6ac", *(u32 *)(a + 0x6ac));
+            }
             if (*vy < -3.5f) *vy = -3.5f;
+            if (*ay < -3.5f) *ay = -3.5f;
+            if (*by < -3.5f) *by = -3.5f;
         }
         if ((moving || jumping || falling) && (d2 + dy * dy < 1.0f || (falling && !jumping && d2 < 1.0f && dy > -8.0f))) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));
