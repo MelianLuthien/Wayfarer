@@ -323,7 +323,7 @@ void wf_actor_pre(void *owner)
         if (game_ready()) item_edit(r >> 8, r & 255);
     }
     if (g_cheat[4]) flight_step(a);
-    else if (g_speed || g_jump) speed_step(a);
+    else if (g_speed || g_jump || g_cheat[6]) speed_step(a);
     else g_fl_actor = g_sp_actor = 0;
     if (g_open && g_tab == 1 && (++g_icnt_tick % 20 == 0 || g_icnt_dirty)) { g_icnt_dirty = 0; refresh_counts(); }
 

@@ -105,7 +105,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.14"
+#define WF_VERSION "v261111.15"
 
 static u64 now_ms(void)
 {
@@ -133,18 +133,19 @@ static int world_running(void)
 #include "destinations.h"
 
 #define TABS 4
-#define PLAYER_ROWS 7
+#define PLAYER_ROWS 8
 /* No static pointer tables anywhere: the module has no relocations, so any
  * absolute address stored in data would be wrong at runtime. */
 /* Strings live in one blob and are found by walking it: a chain of ifs can be
  * compiled into a table of pointers, which would need relocations. */
-static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic\0No-clip flight\0Movement speed\0Jump height";
+static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic\0No-clip flight\0Chicken gravity\0Movement speed\0Jump height";
 static const char descs_blob[] =
     "Hearts stay full; max is never raised\0"
     "Wallet tops up to its current size\0"
     "Ammo refills to your current limits\0"
     "Magic refills to the current limit\0"
     "Left stick flies, ZR up, ZL down\0"
+    "Link floats down slowly, like carrying a chicken\0"
     "Left / Right sets how fast Link moves\0"
     "Left / Right sets how high Link jumps";
 static const char tabs_blob[] = "Player\0Items\0World\0Teleport";
@@ -181,7 +182,7 @@ volatile int g_world_req;        /* 1 time, 2 mark, 3 return, 4 age: served on t
 volatile int g_item_req;         /* (item * 256 + op) + 1: served on the game thread */
 static volatile int g_icount[ITEM_COUNT];   /* what the pouch holds, refreshed while the Items tab is open */
 extern volatile int g_tp_req;    /* set here, served on the game thread (cheats.h) */
-static volatile int g_cheat[8];  /* God, Rupees, Items, Magic, Flight, Free camera */
+static volatile int g_cheat[8];  /* God, Rupees, Items, Magic, Flight, Free camera, Chicken gravity */
 static volatile int g_speed;     /* 0..3: 1x, 1.5x, 2x, 3x */
 static volatile int g_jump;      /* 0..3: 1x, 2x, 3x, 5x */
 static volatile int g_stk[4];    /* raw sticks: left x, y, right x, y (before the game sees them) */
@@ -260,15 +261,15 @@ static void menu_input_inner(u64 e)
     if (g_tab == 0) {
         if (e & BIT(B_UP)) g_sel = (g_sel + PLAYER_ROWS - 1) % PLAYER_ROWS;
         if (e & BIT(B_DOWN)) g_sel = (g_sel + 1) % PLAYER_ROWS;
-        if (g_sel == 5) {
+        if (g_sel == 6) {
             if (e & BIT(B_LEFT)) request(60);
             if (e & BIT(B_RIGHT)) request(61);
         }
-        if (g_sel == 6) {
+        if (g_sel == 7) {
             if (e & BIT(B_LEFT)) request(62);
             if (e & BIT(B_RIGHT)) request(63);
         }
-        if (e & BIT(B_A)) request(g_sel == 5 ? 61 : g_sel == 6 ? 63 : g_sel);
+        if (e & BIT(B_A)) request(g_sel == 6 ? 61 : g_sel == 7 ? 63 : g_sel == 5 ? 6 : g_sel);
     } else if (g_tab == 1) {
         int s = g_isel;
         if (e & BIT(B_LEFT)) s = s > 0 ? s - 1 : ITEM_COUNT - 1;

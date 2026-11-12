@@ -88,11 +88,14 @@ static void speed_step(u64 a)
          * This holds while running too, where the sideways step is bigger than the rise. */
         int jumping = g_jump && dy > 0.03f && (dy * dy * 4.f > d2 || dy < g_sp_pdy - 0.002f);
         int moving = d2 > 4e-4f;   /* below this it is idle sway or floor snapping: scaling that makes Link fidget */
+        /* chicken gravity: falling (not walking downhill) is slowed to a float, like carrying a cucco */
+        int falling = g_cheat[6] && dy < -0.03f && (dy * dy > d2 || dy < g_sp_pdy - 0.002f);
         g_sp_pdy = dy;
-        if ((moving || jumping) && d2 + dy * dy < 1.0f) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
+        if ((moving || jumping || falling) && d2 + dy * dy < 1.0f) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));
             float m = moving ? speed_mul[g_speed & 3] : 1.0f, mv = m;
             if (jumping) mv = jump_mul[g_jump & 3];
+            else if (falling) mv = 0.3f;
             x = g_sp_prev[0] + dx * m;
             z = g_sp_prev[2] + dz * m;
             y = g_sp_prev[1] + dy * mv;   /* scale the climb too, or slopes push Link under the floor */

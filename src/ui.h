@@ -275,6 +275,7 @@ static void text_r(int f, int rx, int cy2, const char *s, u32 col)
 #define ICON_ROW_AGE 0
 #define ICON_ROW_SPEED 0
 #define ICON_ROW_JUMP 0
+#define ICON_ROW_CHICKEN 0
 #define ICON_SWORD_KOKIRI 0
 #endif
 #ifndef ICON_COUNT
@@ -386,7 +387,7 @@ static void sel_box(float x, float y, float w, float h)
 }
 
 /* A wooden toggle, 44 x 18, like a carved wooden slider: dark rim, plank inside, round wooden knob. */
-static void slider(int lx, int ly, int on)
+static void slider(int lx, float ly, int on)
 {
     float fx = (float)lx, fy = (float)ly;
     rr(fx, fy + 0.8f, 44, 18, 9, 0, 0, 0, 70);                                          /* drop shadow */
@@ -458,17 +459,17 @@ static void paint_panel(void)
     fill(46, 95, 448, 1, BRASS, 204);
 
     if (g_tab == 0) {
-        static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC, ICON_ROW_FLY, ICON_ROW_SPEED, ICON_ROW_JUMP};
+        static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC, ICON_ROW_FLY, ICON_ROW_CHICKEN, ICON_ROW_SPEED, ICON_ROW_JUMP};
         for (int i = 0; i < PLAYER_ROWS; i++) {
-            int y = 100 + i * 21;
-            if (i == g_sel) sel_box(46, (float)y, 448, 21);
-            draw_icon(52, y + 1, 19, row_icon[i]);
-            text(0, 79, 2 * y + 21, row_label(i), INK, 255);
-            if (i < 5) slider(444, y + 1, g_cheat[i] ? 1 : 0);
+            int y = 100 + i * 19;
+            if (i == g_sel) sel_box(46, (float)y, 448, 19);
+            draw_icon(52, y + 1, 17, row_icon[i]);
+            text(0, 79, 2 * y + 19, row_label(i), INK, 255);
+            if (i < 6) slider(444, (float)y + 0.5f, g_cheat[i == 5 ? 6 : i] ? 1 : 0);
             else {
                 static const char sp_txt[] = "1x\0" "1.5x\0" "2x\0" "3x";
                 static const char jp_txt[] = "1x\0" "2x\0" "3x\0" "5x";
-                selector(488, 2 * y + 21, nth(i == 5 ? sp_txt : jp_txt, (i == 5 ? g_speed : g_jump) & 3));
+                selector(488, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
             }
         }
         text(1, 48, 526, row_desc(g_sel), DESC, 255);
