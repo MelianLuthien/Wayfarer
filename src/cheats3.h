@@ -90,6 +90,14 @@ static void speed_step(u64 a)
         int moving = d2 > 4e-4f;   /* below this it is idle sway or floor snapping: scaling that makes Link fidget */
         /* chicken gravity: falling (not walking downhill) is slowed to a float, like carrying a cucco */
         int falling = g_cheat[6] && dy < -0.03f && (dy * dy > d2 || dy < g_sp_pdy - 0.002f);
+        {   /* probe: how big do falling steps get, and which test stops matching? */
+            static int fall_log;
+            if (g_cheat[6] && dy < -0.02f) {
+                if (fall_log < 90 && (fall_log & 1) == 0)
+                    dbgx("fall dy*1000 | falling<<32 | moving<<33 | jumping<<34", (u64)(long)(-dy * 1000.f) | ((u64)falling << 32) | ((u64)moving << 33) | ((u64)jumping << 34));
+                fall_log++;
+            } else fall_log = 0;
+        }
         g_sp_pdy = dy;
         if ((moving || jumping || falling) && (d2 + dy * dy < 1.0f || (falling && !jumping && d2 < 1.0f && dy > -8.0f))) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));
