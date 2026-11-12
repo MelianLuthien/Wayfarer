@@ -280,6 +280,24 @@ def up_to_date():
 UNPINK = {"bottle", "scale_silver", "scale_gold"}   # glass items: the magenta background shows through them
 
 
+BRONZE = {"row_magic", "row_rupees"}   # the two green glyphs: recoloured to the bronze of the other Player rows
+
+
+def bronze(im):
+    """Turn the green of the glyph into the tan-brown the other row icons use (keeps its light and shade)."""
+    import numpy as np
+    a = np.array(im.convert("RGBA")).astype(float)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    green = np.clip((g - np.maximum(r, b) - 4) / 30.0, 0, 1)      # 0 = not green, 1 = clearly green
+    lum = np.clip((0.3 * r + 0.59 * g + 0.11 * b) / 200.0, 0, 1) ** 0.8
+    lo, hi = np.array([62, 38, 22.0]), np.array([205, 158, 105.0])
+    tone = lo + (hi - lo) * lum[..., None]
+    for c in range(3):
+        a[..., c] = a[..., c] * (1 - green) + tone[..., c] * green
+    from PIL import Image as _I
+    return _I.fromarray(a.astype("uint8"), "RGBA")
+
+
 def unpink(im):
     """Take the magenta out of see-through glass. A pixel over the magenta key is alpha * item + (1 - alpha) * magenta,
     so the magenta share is min(red, blue) - green: that share becomes transparency, and what is left of a
@@ -336,6 +354,8 @@ def main():
     def save(name, full, sheet, cell):
         if name in UNPINK:
             full = unpink(full)
+        if name in BRONZE:
+            full = bronze(full)
         if name == "mask_bunny":
             full = bunny_yellow(full)
         full.save(os.path.join(OUT, "full", name + ".png"))
