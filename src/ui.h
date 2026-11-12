@@ -464,18 +464,19 @@ static void arrow_btn(float cx, float cy, int dir)
     tri(cx - 0.3f * (float)dir, cy - 1.0f, 9, 8, dir, 0.6f, 0xffffff, 0xffe0a0, 80);
 }
 
-/* "(<) [ 2x ] (>)": two wooden arrows around a small dark plank with the value, right edge at logical rx. */
-static void selector(int rx, int cy2, const char *val)
+/* "(<) [ 2x ] (>)": two wooden arrows around a small dark plank with the value, centred on logical cx
+ * (the same centre as the toggles above it). */
+static void selector(int cx, int cy2, const char *val)
 {
     float cy = (float)cy2 * 0.5f;
     int pw = text_w(4, val) + 12;
-    if (pw < 30) pw = 30;
-    float px = (float)rx - 13.0f - 2.0f - (float)pw;
-    arrow_btn((float)rx - 6.5f, cy, 1);
+    if (pw < 34) pw = 34;
+    float x0 = (float)cx - (float)(pw + 30) * 0.5f, px = x0 + 15.0f;
+    arrow_btn(x0 + 6.5f, cy, -1);
     rr(px, cy - 7.5f, (float)pw, 15, 4, 0, 0x24170c, 0x4a3320, 255);
     rr(px, cy - 7.5f, (float)pw, 15, 4, 1.2f, EDGE, EDGE, 255);
     text_c(4, (int)(px + (float)pw * 0.5f), cy2, val, CREAMC);
-    arrow_btn(px - 2.0f - 6.5f, cy, -1);
+    arrow_btn(px + (float)pw + 2.0f + 6.5f, cy, 1);
 }
 
 /* One hint in the footer: a round button glyph per key, then a label. Returns where the next hint starts. */
@@ -529,7 +530,7 @@ static void paint_panel(void)
             else {
                 static const char sp_txt[] = "1x\0" "1.5x\0" "2x\0" "3x";
                 static const char jp_txt[] = "1x\0" "2x\0" "3x\0" "5x";
-                selector(488, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
+                selector(466, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
             }
         }
         text(1, 48, 532, row_desc(g_sel), DESC, 255);
@@ -605,7 +606,7 @@ static void paint_panel(void)
                 t[0] = (char)('0' + g_hour / 10);
                 t[1] = (char)('0' + g_hour % 10);
                 t[2] = ':'; t[3] = '0'; t[4] = '0'; t[5] = 0;
-                selector(488, 2 * y + 26, t);
+                selector(466, 2 * y + 26, t);
             } else if (i == 4) {
                 slider(446, (float)y + 5, g_cheat[5] ? 1 : 0);
             }
