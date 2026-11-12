@@ -110,24 +110,34 @@ static void speed_step(u64 a)
          * past a limit it plays the freefall animation and hurts. Holding it down keeps a fall a gentle float. */
         if (falling && !jumping) {
             float *vy = (float *)(c + 0x2d4), *ay = (float *)(a + 0x38c), *by = (float *)(a + 0x3a4);   /* the actor keeps copies */
-            if (g_clamp_log == 25) {   /* where does the game keep the real fall speed? scan the objects Link points to for a float equal to it */
-                float v = *ay;
-                for (int who = 0; who < 2; who++) {
-                    u64 src = who ? c : a;
-                    for (int off = 0; off < 0x800; off += 8) {
-                        u64 p = *(u64 *)(src + off);
-                        long long dd = (long long)p - (long long)a;
-                        if ((p & 7) || dd > 0x4000000LL || dd < -0x4000000LL || (p >> 12) == (a >> 12) || (p >> 12) == (c >> 12)) continue;
-                        for (int i = 0; i < 0x180; i++) {
-                            float f = *(float *)(p + i * 4);
-                            if (f < v + 0.05f && f > v - 0.05f) {
-                                dbgx("ptr src(1=ctl)<<16|off", ((u64)who << 16) | (u64)off);
-                                dbgx("ptr target word offset", (u64)i * 4);
-                            }
+            if (g_clamp_log == 20 || g_clamp_log == 21) {   /* find the air-time timer: in objects Link points to, words that go up by 1, or floats that creep up by one frame's worth */
+                static u64 sp[48];
+                static u32 sw[48][0x180];
+                static int np;
+                if (g_clamp_log == 20) {
+                    np = 0;
+                    for (int who = 0; who < 2; who++)
+                        for (int off = 0; off < 0x800 && np < 48; off += 8) {
+                            u64 p = *(u64 *)((who ? c : a) + off);
+                            long long dd = (long long)p - (long long)a;
+                            if ((p & 7) || dd > 0x4000000LL || dd < -0x4000000LL || (p >> 12) == (a >> 12) || (p >> 12) == (c >> 12)) continue;
+                            int dup = 0;
+                            for (int k = 0; k < np; k++) if (sp[k] == p) dup = 1;
+                            if (dup) continue;
+                            sp[np] = p;
+                            for (int i = 0; i < 0x180; i++) sw[np][i] = *(u32 *)(p + i * 4);
+                            np++;
                         }
-                    }
+                } else {
+                    for (int k = 0; k < np; k++)
+                        for (int i = 0; i < 0x180; i++) {
+                            u32 o = sw[k][i], n = *(u32 *)(sp[k] + i * 4);
+                            float fo = *(float *)&o, fn = *(float *)&n;
+                            int hit = (n == o + 1 && o > 0 && o < 0x1000000) || (fn > fo + 0.004f && fn < fo + 0.12f && fn > 0.02f && fn < 100.0f && fo > 0.0f);
+                            if (hit) { dbgx("timer? ptr k", (u64)k); dbgx("timer? word offset", (u64)i * 4); dbgx("timer? old|new", ((u64)o << 32) | n); }
+                        }
+                    dbgx("timer scan done, objects", (u64)np);
                 }
-                dbgx("scan done, v bits", *(u32 *)&v);
             }
             g_clamp_log++;
             if (*vy < -3.5f) *vy = -3.5f;
