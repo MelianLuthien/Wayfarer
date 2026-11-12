@@ -90,35 +90,13 @@ static void speed_step(u64 a)
         int moving = d2 > 4e-4f;   /* below this it is idle sway or floor snapping: scaling that makes Link fidget */
         /* chicken gravity: falling (not walking downhill) is slowed to a float, like carrying a cucco */
         int falling = g_cheat[6] && dy < -0.03f && (dy * dy > d2 || dy < g_sp_pdy - 0.002f);
-        {   /* probe: how big do falling steps get, and which test stops matching? */
-            static int fall_log;
-            if (g_cheat[6] && dy < -0.02f) {
-                if (fall_log < 90 && (fall_log & 1) == 0)
-                    dbgx("fall dy*1000 | falling<<32 | moving<<33 | jumping<<34", (u64)(long)(-dy * 1000.f) | ((u64)falling << 32) | ((u64)moving << 33) | ((u64)jumping << 34));
-                if (fall_log == 15 || fall_log == 40 || fall_log == 70) {   /* what grows during a fall? diff actor and controller between samples */
-                    static u32 sa[0xa00 / 4], sc[0x600 / 4];
-                    static int have;
-                    dbgx("fall sample at step", (u64)fall_log);
-                    if (have) {
-                        int shown = 0;
-                        for (u32 off = 0; off < 0xa00 && shown < 70; off += 4) {
-                            u32 now = *(u32 *)(a + off);
-                            if (now != sa[off / 4]) { dbgx("fall actor offset", (u64)off); dbgx("fall actor old|new", (u64)sa[off / 4] | ((u64)now << 32)); shown++; }
-                        }
-                        shown = 0;
-                        for (u32 off = 0; off < 0x600 && shown < 70; off += 4) {
-                            u32 now = *(u32 *)(c + off);
-                            if (now != sc[off / 4]) { dbgx("fall ctl offset", (u64)off); dbgx("fall ctl old|new", (u64)sc[off / 4] | ((u64)now << 32)); shown++; }
-                        }
-                    }
-                    for (u32 off = 0; off < 0xa00; off += 4) sa[off / 4] = *(u32 *)(a + off);
-                    for (u32 off = 0; off < 0x600; off += 4) sc[off / 4] = *(u32 *)(c + off);
-                    have = fall_log != 70;   /* each fall starts a fresh comparison */
-                }
-                fall_log++;
-            } else fall_log = 0;
-        }
         g_sp_pdy = dy;
+        /* The game's own downward speed (controller +0x2d4, in units per second) keeps growing the longer you fall;
+         * past a limit it plays the freefall animation and hurts. Holding it down keeps a fall a gentle float. */
+        if (falling && !jumping) {
+            float *vy = (float *)(c + 0x2d4);
+            if (*vy < -3.5f) *vy = -3.5f;
+        }
         if ((moving || jumping || falling) && (d2 + dy * dy < 1.0f || (falling && !jumping && d2 < 1.0f && dy > -8.0f))) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));
             float m = moving ? speed_mul[g_speed & 3] : 1.0f, mv = m;
