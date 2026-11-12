@@ -520,17 +520,17 @@ static void paint_panel(void)
     fill(46, 98, 448, 1, BRASS, 204);
 
     if (g_tab == 0) {
-        static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_MAGIC, ICON_ROW_FLY, ICON_ROW_CHICKEN, ICON_ROW_SPEED, ICON_ROW_JUMP};
+        static const u8 row_icon[PLAYER_ROWS] = {ICON_ROW_GOD, ICON_ROW_MAGIC, ICON_ROW_RUPEES, ICON_ROW_ITEMS, ICON_ROW_CHICKEN, ICON_ROW_FLY, ICON_ROW_SPEED, ICON_ROW_JUMP, ICON_ROW_AGE};
         for (int i = 0; i < PLAYER_ROWS; i++) {
-            int y = 103 + i * 19;
-            if (i == g_sel) sel_box(46, (float)y, 448, 19);
-            draw_icon(52, y + 1, 17, row_icon[i]);
-            text(0, 79, 2 * y + 19, row_label(i), INK, 255);
-            if (i < 6) slider(436, (float)y + 1.5f, g_cheat[i == 5 ? 6 : i] ? 1 : 0);
-            else {
+            int y = 102 + i * 17;
+            if (i == g_sel) sel_box(46, (float)y, 448, 17);
+            draw_icon(52, y + 1, 15, row_icon[i]);
+            text(0, 79, 2 * y + 17, row_label(i), INK, 255);
+            if (i < 6) slider(436, (float)y + 0.5f, g_cheat[player_what[i]] ? 1 : 0);
+            else if (i < 8) {
                 static const char sp_txt[] = "1x\0" "1.5x\0" "2x\0" "3x";
                 static const char jp_txt[] = "1x\0" "2x\0" "3x\0" "5x";
-                selector(456, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
+                selector(456, 2 * y + 17, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
             }
         }
         text(1, 48, 532, row_desc(g_sel), DESC, 255);
@@ -587,27 +587,30 @@ static void paint_panel(void)
         int top = g_tsel - 3;
         if (top > TP_COUNT - 7) top = TP_COUNT - 7;
         if (top < 0) top = 0;
+        if (!g_tl_ok) tp_rebuild();
         for (int k = 0; k < 7; k++) {
-            int i = top + k, y = 104 + k * 23;
-            if (i == g_tsel) { sel_box(46, (float)y, 436, 23); arrow(58, (float)y + 7, WOOD); }
-            text(0, 80, 2 * y + 23, nth(tp_names, i), INK, 255);
+            int i = top + k, y = 104 + k * 21;
+            if (i == g_tsel) { sel_box(46, (float)y, 436, 21); arrow(58, (float)y + 6, WOOD); }
+            text(0, 80, 2 * y + 21, nth(tp_names, g_tlist[i]), INK, 255);
+            if ((g_tfav >> g_tlist[i]) & 1) disc(468, (float)y + 10.5f, 4.5f, 0xfff0b0, GOLDC, 0x8a6a1c, 255);
         }
-        rr(490, 104, 4, 161, 2, 0, WOOD, WOOD, 51);
-        rr(490, 104.0f + (float)(161 - 36) * (float)g_tsel / (float)(TP_COUNT - 1), 4, 36, 2, 0, WOOD, WOOD, 255);
+        rr(490, 104, 4, 147, 2, 0, WOOD, WOOD, 51);
+        rr(490, 104.0f + (float)(147 - 36) * (float)g_tsel / (float)(TP_COUNT - 1), 4, 36, 2, 0, WOOD, WOOD, 255);
+        text(1, 48, 532, g_tsort ? "Sorted by order of discovery" : "Sorted alphabetically", DESC, 255);
     } else if (g_tab == 2) {
-        static const u8 wicon[WORLD_ROWS] = {ICON_ROW_TIME, ICON_ROW_MARK, ICON_ROW_RETURN, ICON_ROW_AGE, ICON_ROW_CAMERA};
+        static const u8 wicon[WORLD_ROWS] = {ICON_ROW_MARK, ICON_ROW_RETURN, ICON_ROW_TIME, ICON_ROW_CAMERA};
         for (int i = 0; i < WORLD_ROWS; i++) {
             int y = 104 + i * 28;
             if (i == g_wsel) sel_box(46, (float)y, 448, 26);
             draw_icon(52, y + 3, 19, wicon[i]);
             text(0, 79, 2 * y + 26, nth(wlabels_blob, i), INK, 255);
-            if (i == 0) {
+            if (i == 2) {
                 char t[8];
                 t[0] = (char)('0' + g_hour / 10);
                 t[1] = (char)('0' + g_hour % 10);
                 t[2] = ':'; t[3] = '0'; t[4] = '0'; t[5] = 0;
                 selector(456, 2 * y + 26, t);
-            } else if (i == 4) {
+            } else if (i == 3) {
                 slider(436, (float)y + 5, g_cheat[5] ? 1 : 0);
             }
         }
@@ -618,10 +621,11 @@ static void paint_panel(void)
     {
         int x = 48;
         x = hint(x, "A", g_tab == 3 ? "Go" : g_tab == 1 ? "Toggle" : "Select");
+        if (g_tab == 1 && ITEM_IS_QTY(g_isel)) { x = hint(x, "X", "Increase"); x = hint(x, "Y", "Decrease"); }
+        if (g_tab == 3) { x = hint(x, "X", "Favorite"); x = hint(x, "Y", "Sort"); }
         x = hint(x, "B", "Close");
-        x = hint(x, "LR", "Tab");
-        if (g_tab == 3) text(1, x, 579, "Left / Right: page", DESC, 255);
-        if (g_tab == 1 && ITEM_IS_QTY(g_isel)) { x = hint(x, "X", "More"); x = hint(x, "Y", "Less"); }
+        (void)x;
+        hint(492 - (38 + text_w(1, "Tab")), "LR", "Tab");
     }
 
     if (g_dlg) {

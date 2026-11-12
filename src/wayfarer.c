@@ -105,7 +105,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.24"
+#define WF_VERSION "v261111.25"
 
 static u64 now_ms(void)
 {
@@ -133,31 +133,35 @@ static int world_running(void)
 #include "destinations.h"
 
 #define TABS 4
-#define PLAYER_ROWS 8
+#define PLAYER_ROWS 9
 /* No static pointer tables anywhere: the module has no relocations, so any
  * absolute address stored in data would be wrong at runtime. */
 /* Strings live in one blob and are found by walking it: a chain of ifs can be
  * compiled into a table of pointers, which would need relocations. */
-static const char labels_blob[] = "God Mode\0Infinite Rupees\0Infinite Items\0Infinite Magic\0No-clip flight\0Chicken gravity\0Movement speed\0Jump height";
+static const char labels_blob[] = "God Mode\0Infinite Magic\0Infinite Rupees\0Infinite Items\0Chicken Gravity\0Flight\0Movement Speed\0Jump Height\0Switch Age";
 static const char descs_blob[] =
     "Hearts stay full; max is never raised\0"
+    "Magic refills to the current limit\0"
     "Wallet tops up to its current size\0"
     "Ammo refills to your current limits\0"
-    "Magic refills to the current limit\0"
-    "Left stick flies, ZR up, ZL down\0"
     "Link floats down slowly, like carrying a chicken\0"
+    "Left stick flies, ZR up, ZL down\0"
     "Left / Right sets how fast Link moves\0"
-    "Left / Right sets how high Link jumps";
+    "Left / Right sets how high Link jumps\0"
+    "Child or adult; the map reloads";
+/* What each Player row does, as the number activate() takes: 0..4 and 6 flip that cheat, 61 / 63 step speed / jump, 103 switch age. */
+static const u8 player_what[PLAYER_ROWS] = {0, 3, 1, 2, 6, 4, 61, 63, 103};
 static const char tabs_blob[] = "Player\0Items\0World\0Teleport";
-static const char wlabels_blob[] = "Time of day\0Mark position\0Return to mark\0Switch age\0Free camera";
+static const char wlabels_blob[] = "Save Position\0Return to Position\0Time of Day\0Free Camera";
 static const char wdescs_blob[] =
-    "Left / Right picks the hour, A sets it\0"
     "Remember where Link stands\0"
     "Go back to the marked place\0"
-    "Child or adult; the map reloads\0"
+    "Left / Right picks the hour, A sets it\0"
     "Sticks move and look, ZR/ZL up and down, A faster";
+/* activate() numbers of the World rows: 100 time, 101 mark, 102 return, 104 free camera. */
+static const u8 world_what[4] = {101, 102, 100, 104};
 #include "items.h"
-#define WORLD_ROWS 5
+#define WORLD_ROWS 4
 
 static const char *nth(const char *blob, int i)
 {
@@ -174,7 +178,11 @@ static volatile int g_dlg;       /* warning dialog visible */
 static volatile int g_warned;    /* warning accepted this session */
 static volatile int g_pending;   /* row waiting for the warning */
 static volatile int g_tab;       /* 0 Player, 1 Items, 2 World, 3 Teleport */
-static volatile int g_tsel;      /* selected destination */
+static volatile int g_tsel;      /* selected row of the Teleport list */
+static volatile int g_tsort;     /* 0 alphabetical, 1 order of discovery */
+static volatile u32 g_tfav;      /* bit n: destination n is a favorite (kept for this session only) */
+static u8 g_tlist[TP_COUNT];     /* the Teleport list: destination numbers in the order shown */
+static int g_tl_ok;
 static volatile int g_wsel;      /* selected World row */
 static volatile int g_hour = 12; /* hour chosen on the World tab */
 static volatile int g_isel;      /* selected inventory item */
@@ -201,12 +209,47 @@ static void menu_input(u64 e)
 /* what: 0..4 flip that cheat; 5 and 61 speed up, 60 slow down; 50 teleport to the selected destination;
  * 100 + n a World action (n: 0 time, 1 mark, 2 return, 3 age, 4 free camera);
  * 1000 + item * 256 + op an inventory edit. */
+/* The order a first playthrough reaches the places (child dungeons, then the temples), after the usual walkthroughs. */
+static const u8 tp_discovery[TP_COUNT] = {0, 19, 1, 3, 4, 2, 9, 20, 11, 12, 13, 14, 21, 5, 6, 7, 8, 22, 10, 23, 28, 24, 15, 16, 17, 18, 25, 27, 26, 29, 30};
+
+static int tp_before(const char *a, const char *b)
+{
+    for (;; a++, b++) {
+        int x = *a >= 'a' && *a <= 'z' ? *a - 32 : *a, y = *b >= 'a' && *b <= 'z' ? *b - 32 : *b;
+        if (x != y) return x < y;
+        if (!x) return 0;
+    }
+}
+
+/* Builds g_tlist: favorites first, then the rest, each group in the chosen sort; keeps the same destination selected. */
+static void tp_rebuild(void)
+{
+    int keep = g_tl_ok ? g_tlist[g_tsel] : -1;
+    u8 base[TP_COUNT];
+    for (int i = 0; i < TP_COUNT; i++) base[i] = g_tsort ? tp_discovery[i] : (u8)i;
+    if (!g_tsort)
+        for (int i = 1; i < TP_COUNT; i++) {
+            u8 v = base[i];
+            int j = i - 1;
+            while (j >= 0 && tp_before(nth(tp_names, v), nth(tp_names, base[j]))) { base[j + 1] = base[j]; j--; }
+            base[j + 1] = v;
+        }
+    int n = 0;
+    for (int pass = 0; pass < 2; pass++)
+        for (int i = 0; i < TP_COUNT; i++)
+            if (((g_tfav >> base[i]) & 1) == (u32)(pass == 0)) g_tlist[n++] = base[i];
+    g_tl_ok = 1;
+    if (keep >= 0)
+        for (int i = 0; i < TP_COUNT; i++) if (g_tlist[i] == keep) g_tsel = i;
+}
+
 static void activate(int what)
 {
     if (what == 50) {
-        g_tp_req = g_tsel + 1;
+        if (!g_tl_ok) tp_rebuild();
+        g_tp_req = g_tlist[g_tsel] + 1;
         g_open = 0;
-        dbgx("teleport chosen", (u64)g_tsel);
+        dbgx("teleport chosen", (u64)g_tlist[g_tsel]);
     } else if (what >= 1000) {
         g_item_req = what - 1000 + 1;
     } else if (what == 104) {
@@ -269,7 +312,7 @@ static void menu_input_inner(u64 e)
             if (e & BIT(B_LEFT)) request(62);
             if (e & BIT(B_RIGHT)) request(63);
         }
-        if (e & BIT(B_A)) request(g_sel == 6 ? 61 : g_sel == 7 ? 63 : g_sel == 5 ? 6 : g_sel);
+        if (e & BIT(B_A)) request(player_what[g_sel]);
     } else if (g_tab == 1) {
         int s = g_isel;
         if (e & BIT(B_LEFT)) s = s > 0 ? s - 1 : ITEM_COUNT - 1;
@@ -285,16 +328,19 @@ static void menu_input_inner(u64 e)
     } else if (g_tab == 2) {
         if (e & BIT(B_UP)) g_wsel = (g_wsel + WORLD_ROWS - 1) % WORLD_ROWS;
         if (e & BIT(B_DOWN)) g_wsel = (g_wsel + 1) % WORLD_ROWS;
-        if (g_wsel == 0) {
+        if (world_what[g_wsel] == 100) {
             if (e & BIT(B_LEFT)) g_hour = (g_hour + 23) % 24;
             if (e & BIT(B_RIGHT)) g_hour = (g_hour + 1) % 24;
         }
-        if (e & BIT(B_A)) request(100 + g_wsel);
+        if (e & BIT(B_A)) request(world_what[g_wsel]);
     } else if (g_tab == 3) {
+        if (!g_tl_ok) tp_rebuild();
         if (e & BIT(B_UP)) g_tsel = (g_tsel + TP_COUNT - 1) % TP_COUNT;
         if (e & BIT(B_DOWN)) g_tsel = (g_tsel + 1) % TP_COUNT;
         if (e & BIT(B_LEFT)) g_tsel = g_tsel >= 7 ? g_tsel - 7 : 0;
         if (e & BIT(B_RIGHT)) g_tsel = g_tsel + 7 < TP_COUNT ? g_tsel + 7 : TP_COUNT - 1;
+        if (e & BIT(B_X)) { g_tfav ^= 1u << g_tlist[g_tsel]; tp_rebuild(); }
+        if (e & BIT(B_Y)) { g_tsort = !g_tsort; tp_rebuild(); }
         if (e & BIT(B_A)) request(50);
     }
 }
