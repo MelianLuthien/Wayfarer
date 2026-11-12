@@ -95,7 +95,7 @@ static void speed_step(u64 a)
             static float arg[4] __attribute__((aligned(16)));
             float m = moving ? speed_mul[g_speed & 3] : 1.0f, mv = m;
             if (jumping) mv = jump_mul[g_jump & 3];
-            else if (falling) mv = 0.3f;
+            else if (falling) mv = 0.5f;
             x = g_sp_prev[0] + dx * m;
             z = g_sp_prev[2] + dz * m;
             y = g_sp_prev[1] + dy * mv;   /* scale the climb too, or slopes push Link under the floor */

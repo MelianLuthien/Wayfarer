@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <kbd>v1.0</kbd> &nbsp; <kbd>GPL-3.0</kbd> &nbsp; <kbd>by melianluthien</kbd>
+  <kbd>v1.1</kbd> &nbsp; <kbd>GPL-3.0</kbd> &nbsp; <kbd>by melianluthien</kbd>
 </p>
 
 <p align="center">
@@ -44,7 +44,7 @@ Press **R3** while you play and a carved-wood pause menu opens over the game. Wa
 | **Infinite Magic** | Your magic never runs out. |
 | **Infinite Rupees** | Your wallet is always full. |
 | **Infinite Ammo** | Arrows, bombs, Bombchus, Deku Sticks, Deku Nuts and Deku Seeds refill to your current capacity. |
-| **Chicken Gravity** | Fall slowly, as if carrying a cucco. |
+| **Chicken Gravity** | Fall at half speed, as if carrying a cucco. |
 | **Flight** | Fly freely: the left stick moves, **ZR** rises, **ZL** descends. |
 | **Movement Speed** | Run at 1x, 1.5x, 2x or 3x. |
 | **Jump Height** | Jump at 1x, 2x, 3x or 5x. |
@@ -73,7 +73,7 @@ Thirty-one places, from Kokiri Forest to Ganon's Castle, sorted either **alphabe
 
 You need the game (title ID `0400486024DEC000`, version **1.1.1**, build ID `E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348`) running in **Lichii**. Wayfarer ships no game files.
 
-1. Download `Wayfarer-v1.0.zip` from the [Releases](../../releases) page and unzip it. You get a folder named `Wayfarer` with an `exefs` folder inside.
+1. Download `Wayfarer-v1.1.zip` from the [Releases](../../releases) page and unzip it. You get a folder named `Wayfarer` with an `exefs` folder inside.
 2. Close the game. In Lichii, right-click the game and choose **Open Mod Data Location**.
 3. Copy the whole `Wayfarer` folder in there. Inside, `exefs` must hold `subsdk8` and a file named after the build ID with the `.ips` extension.
 4. Start the game, load a save and click the right stick (**R3**) during gameplay.
@@ -104,11 +104,11 @@ While the menu is open the game doesn't see your inputs. **Free Camera** closes 
 
 ## Status
 
-Wayfarer 1.0 is the first public release.
+Wayfarer 1.0 was the first public release; 1.1 adds saved favorites and a gentler Chicken Gravity.
 
 - Written and tested by hand on **Lichii for Windows** with game version 1.1.1. It has not been tried on real hardware or in other emulators.
 - God Mode, the infinite refills, Movement Speed, Flight, Free Camera and Teleport have had the most play-testing. **Chicken Gravity**, **Jump Height** and Teleport **favorites** are the newest and have had the least.
-- Favorites are kept in memory only: they are cleared when you close the game.
+- Teleport favorites and the sort order are saved to `wayfarer/favorites.bin` on the emulator's SD card, so they survive a restart. If the emulator doesn't give the game an SD card, they last only until you close the game.
 - Savestates: loading one gives Wayfarer no signal to reset, so a refill may need a moment to catch up.
 
 Found a bug? Please open an [issue](../../issues) with what you were doing and the game's log if you have it.

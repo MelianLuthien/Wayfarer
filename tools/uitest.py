@@ -38,6 +38,8 @@ static const u8 *wf_font_blob, *wf_panel_blob, *wf_icon_blob, *wf_logo_blob;
 static void dbg(const char *s) { (void)s; }
 static void dbgx(const char *s, u64 v) { (void)s; (void)v; }
 static int world_running(void) { return 1; }
+static int sd_load(unsigned *d) { (void)d; return 0; }
+static void sd_save(const unsigned *d) { (void)d; }
 %(state)s
 #include "ui.h"
 

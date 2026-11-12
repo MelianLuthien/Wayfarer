@@ -32,6 +32,8 @@ static const u8 *wf_font_blob, *wf_panel_blob, *wf_icon_blob, *wf_logo_blob;
 #define dbg(s) ((void)0)
 #define dbgx(a, b) ((void)0)
 static int world_running(void) { return 1; }
+static int sd_load(unsigned *d) { (void)d; return 0; }
+static void sd_save(const unsigned *d) { (void)d; }
 volatile int g_tp_req;
 %(logic)s
 #include "ui.h"

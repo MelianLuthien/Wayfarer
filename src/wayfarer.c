@@ -105,7 +105,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v1.0"
+#define WF_VERSION "v1.1"
 
 static u64 now_ms(void)
 {
@@ -130,6 +130,7 @@ static int world_running(void)
 
 /* ---- menu state ------------------------------------------------------- */
 
+#include "sdfile.h"
 #include "destinations.h"
 
 #define TABS 4
@@ -221,6 +222,25 @@ static int tp_before(const char *a, const char *b)
     }
 }
 
+/* Favorites and sort live in a small file on the SD card (src/sdfile.h): 'WFAV', favorites, sort, check. */
+#define FAV_MAGIC 0x56414657u
+static int g_fav_loaded;
+static void fav_load(void)
+{
+    u32 d[4];
+    g_fav_loaded = 1;
+    if (!sd_load(d) || d[0] != FAV_MAGIC || (d[1] ^ d[2] ^ FAV_MAGIC) != d[3]) return;
+    g_tfav = d[1] & ((1u << TP_COUNT) - 1);
+    g_tsort = d[2] ? 1 : 0;
+    g_tl_ok = 0;
+}
+static void fav_save(void)
+{
+    u32 d[4] = {FAV_MAGIC, g_tfav, (u32)g_tsort, 0};
+    d[3] = d[1] ^ d[2] ^ FAV_MAGIC;
+    sd_save(d);
+}
+
 /* Builds g_tlist: favorites first, then the rest, each group in the chosen sort; keeps the same destination selected. */
 static void tp_rebuild(void)
 {
@@ -284,6 +304,7 @@ static void menu_input_inner(u64 e)
         if (!g_open && !world_running()) { dbg("[wayfarer] R3 ignored: the game is not running right now\n"); return; }
         g_open = !g_open;
         g_dlg = 0;
+        if (g_open && !g_fav_loaded) fav_load();
         if (g_open) dbg("[wayfarer] menu open\n"); else dbg("[wayfarer] menu closed\n");
         return;
     }
@@ -339,8 +360,8 @@ static void menu_input_inner(u64 e)
         if (e & BIT(B_DOWN)) g_tsel = (g_tsel + 1) % TP_COUNT;
         if (e & BIT(B_LEFT)) g_tsel = g_tsel >= 7 ? g_tsel - 7 : 0;
         if (e & BIT(B_RIGHT)) g_tsel = g_tsel + 7 < TP_COUNT ? g_tsel + 7 : TP_COUNT - 1;
-        if (e & BIT(B_X)) { g_tfav ^= 1u << g_tlist[g_tsel]; tp_rebuild(); }
-        if (e & BIT(B_Y)) { g_tsort = !g_tsort; tp_rebuild(); }
+        if (e & BIT(B_X)) { g_tfav ^= 1u << g_tlist[g_tsel]; tp_rebuild(); fav_save(); }
+        if (e & BIT(B_Y)) { g_tsort = !g_tsort; tp_rebuild(); fav_save(); }
         if (e & BIT(B_A)) request(50);
     }
 }
