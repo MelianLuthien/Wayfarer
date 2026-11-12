@@ -526,11 +526,11 @@ static void paint_panel(void)
             if (i == g_sel) sel_box(46, (float)y, 448, 19);
             draw_icon(52, y + 1, 17, row_icon[i]);
             text(0, 79, 2 * y + 19, row_label(i), INK, 255);
-            if (i < 6) slider(446, (float)y + 1.5f, g_cheat[i == 5 ? 6 : i] ? 1 : 0);
+            if (i < 6) slider(436, (float)y + 1.5f, g_cheat[i == 5 ? 6 : i] ? 1 : 0);
             else {
                 static const char sp_txt[] = "1x\0" "1.5x\0" "2x\0" "3x";
                 static const char jp_txt[] = "1x\0" "2x\0" "3x\0" "5x";
-                selector(466, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
+                selector(456, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
             }
         }
         text(1, 48, 532, row_desc(g_sel), DESC, 255);
@@ -606,9 +606,9 @@ static void paint_panel(void)
                 t[0] = (char)('0' + g_hour / 10);
                 t[1] = (char)('0' + g_hour % 10);
                 t[2] = ':'; t[3] = '0'; t[4] = '0'; t[5] = 0;
-                selector(466, 2 * y + 26, t);
+                selector(456, 2 * y + 26, t);
             } else if (i == 4) {
-                slider(446, (float)y + 5, g_cheat[5] ? 1 : 0);
+                slider(436, (float)y + 5, g_cheat[5] ? 1 : 0);
             }
         }
         text(1, 48, 532, nth(wdescs_blob, g_wsel), DESC, 255);
