@@ -103,11 +103,11 @@ static void speed_step(u64 a)
             static float arg[4] __attribute__((aligned(16)));
             float m = moving ? speed_mul[g_speed & 3] : 1.0f, mv = m;
             if (jumping) mv = jump_mul[g_jump & 3];
-            else if (falling) mv = 0.35f;   /* the game's fall speed keeps growing, so also cap the step: a float, never a freefall */
+            else if (falling) mv = 0.5f;   /* the game's fall speed keeps growing, so also cap the step: a float, never a freefall */
             x = g_sp_prev[0] + dx * m;
             z = g_sp_prev[2] + dz * m;
             y = g_sp_prev[1] + dy * mv;
-            if (falling && !jumping && y < g_sp_prev[1] - 0.1f) y = g_sp_prev[1] - 0.1f;   /* the game's own fall speed keeps growing (0.9 per frame after a few seconds): hold a steady float */   /* scale the climb too, or slopes push Link under the floor */
+            if (falling && !jumping && y < g_sp_prev[1] - 0.08f) y = g_sp_prev[1] - 0.08f;   /* the game's own fall speed keeps growing (0.9 per frame after a few seconds): hold a steady float */   /* scale the climb too, or slopes push Link under the floor */
             arg[0] = x; arg[1] = y; arg[2] = z; arg[3] = 0.f;
             ((void (*)(u64, float *))(g_base + FN_CHANGE_POS))(c, arg);
         }
