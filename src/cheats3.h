@@ -96,9 +96,18 @@ static void speed_step(u64 a)
          * past a limit it plays the freefall animation and hurts. Holding it down keeps a fall a gentle float. */
         if (falling && !jumping) {
             float *vy = (float *)(c + 0x2d4), *ay = (float *)(a + 0x38c), *by = (float *)(a + 0x3a4);   /* the actor keeps copies */
-            if (g_clamp_log < 60) {   /* every frame of the start of a fall: what does the game recompute after our clamp? */
-                dbgx("fall frame: actor38c bits", *(u32 *)ay);
-                dbgx("fall frame: ctl2d4 bits", *(u32 *)vy);
+            {   /* find the air-time state: snapshot actor and controller at fall frame 20, log every word that changed by frame 21 */
+                static u32 sa[512], sc[512];
+                if (g_clamp_log == 20 || g_clamp_log == 21) {
+                    for (int i = 0; i < 512; i++) {
+                        u32 na = *(u32 *)(a + i * 4), nc = *(u32 *)(c + i * 4);
+                        if (g_clamp_log == 21) {
+                            if (na != sa[i]) { dbgx("diff actor off", (u64)i * 4); dbgx("diff old|new", ((u64)sa[i] << 32) | na); }
+                            if (nc != sc[i]) { dbgx("diff ctl off", (u64)i * 4); dbgx("diff old|new", ((u64)sc[i] << 32) | nc); }
+                        }
+                        sa[i] = na; sc[i] = nc;
+                    }
+                }
             }
             g_clamp_log++;
             if (*vy < -3.5f) *vy = -3.5f;
