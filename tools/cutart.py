@@ -20,8 +20,9 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ART = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "wayfarer-art")
-OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "build", "art")
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+ART = ARGS[0] if len(ARGS) > 0 else os.path.join(ROOT, "wayfarer-art")
+OUT = ARGS[1] if len(ARGS) > 1 else os.path.join(ROOT, "build", "art")
 
 MAGENTA = np.array([255.0, 0.0, 255.0])
 T_FG = 70          # distance from magenta below which a pixel is background
@@ -266,7 +267,20 @@ def cut_songs(path):
     return out
 
 
+def up_to_date():
+    """True when the cut already in OUT is newer than every input (the sheets, the hand-made icons, this script)."""
+    mf = os.path.join(OUT, "manifest.json")
+    if not os.path.exists(mf) or "--force" in sys.argv:
+        return False
+    t = os.path.getmtime(mf)
+    ins = [os.path.join(ART, f) for f in os.listdir(ART)] if os.path.isdir(ART) else []
+    return all(os.path.getmtime(f) < t for f in ins + [os.path.abspath(__file__)])
+
+
 def main():
+    if up_to_date():
+        print("art already cut and newer than its sources (use --force to cut again)")
+        return
     os.makedirs(os.path.join(OUT, "full"), exist_ok=True)
     os.makedirs(os.path.join(OUT, "icon128"), exist_ok=True)
     manifest = []
