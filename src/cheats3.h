@@ -161,6 +161,23 @@ static void speed_step(u64 a)
             }
             if (g_clamp_log >= 1) *(float *)(a + 0x2f0) = g_sp_prev[1];   /* test: a stored height found between the start and the current height of a fall */
             if (g_clamp_log >= 30 && g_clamp_log < 34) dbgx("actor 2f0 now", *(u32 *)(a + 0x2f0));
+            {   /* state machine probe: log every small-integer word of the actor and controller that changes during a fall, with the frame number */
+                static u32 snap[2][1024];
+                static int logged;
+                if (g_clamp_log == 0) { logged = 0; for (int w = 0; w < 2; w++) for (int i = 0; i < 1024; i++) snap[w][i] = *(u32 *)((w ? c : a) + i * 4); }
+                else {
+                    for (int w = 0; w < 2; w++)
+                        for (int i = 0; i < 1024; i++) {
+                            u32 n = *(u32 *)((w ? c : a) + i * 4), o = snap[w][i];
+                            snap[w][i] = n;
+                            if (n == o || n > 0x10000 || o > 0x10000 || (w == 0 && i * 4 == 0x6ac) || logged > 400) continue;
+                            logged++;
+                            dbgx("st frame", (u64)g_clamp_log);
+                            dbgx("st off", ((u64)w << 16) | (u64)(i * 4));
+                            dbgx("st old|new", ((u64)o << 32) | n);
+                        }
+                }
+            }
             g_clamp_log++;
             if (*vy < -3.5f) *vy = -3.5f;
             if (*ay < -3.5f) *ay = -3.5f;
