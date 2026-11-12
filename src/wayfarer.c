@@ -105,7 +105,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v261111.27"
+#define WF_VERSION "v1.0"
 
 static u64 now_ms(void)
 {
@@ -140,24 +140,24 @@ static int world_running(void)
  * compiled into a table of pointers, which would need relocations. */
 static const char labels_blob[] = "God Mode\0Infinite Magic\0Infinite Rupees\0Infinite Items\0Chicken Gravity\0Flight\0Movement Speed\0Jump Height\0Switch Age";
 static const char descs_blob[] =
-    "Hearts stay full; max is never raised\0"
-    "Magic refills to the current limit\0"
-    "Wallet tops up to its current size\0"
-    "Ammo refills to your current limits\0"
-    "Link floats down slowly, like carrying a chicken\0"
-    "Left stick flies, ZR up, ZL down\0"
-    "Left / Right sets how fast Link moves\0"
-    "Left / Right sets how high Link jumps\0"
-    "Child or adult; the map reloads";
+    "Replenish your hearts automatically.\0"
+    "Your magic never runs out.\0"
+    "Your wallet is always full.\0"
+    "Ammo and consumables never run out.\0"
+    "Fall slowly, like carrying a chicken.\0"
+    "Fly freely. Stick moves, ZR rises, ZL descends.\0"
+    "Left / Right: run faster.\0"
+    "Left / Right: jump higher.\0"
+    "Switch between child and adult Link.";
 /* What each Player row does, as the number activate() takes: 0..4 and 6 flip that cheat, 61 / 63 step speed / jump, 103 switch age. */
 static const u8 player_what[PLAYER_ROWS] = {0, 3, 1, 2, 6, 4, 61, 63, 103};
 static const char tabs_blob[] = "Player\0Items\0World\0Teleport";
 static const char wlabels_blob[] = "Save Position\0Return to Position\0Time of Day\0Free Camera";
 static const char wdescs_blob[] =
-    "Remember where Link stands\0"
-    "Go back to the marked place\0"
-    "Left / Right picks the hour, A sets it\0"
-    "Sticks move and look, ZR/ZL up and down, A faster";
+    "Remember where you are standing.\0"
+    "Go back to your saved spot.\0"
+    "Left / Right: pick an hour. A: apply it.\0"
+    "Fly the camera. Sticks move, ZR/ZL rise and descend, A speeds up.";
 /* activate() numbers of the World rows: 100 time, 101 mark, 102 return, 104 free camera. */
 static const u8 world_what[4] = {101, 102, 100, 104};
 #include "items.h"

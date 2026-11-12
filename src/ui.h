@@ -199,6 +199,7 @@ static int next_glyph(const char **ps)
     return '?' - 32;
 }
 
+static int g_dx2;     /* extra shift of the first letter, in 2x pixels */
 static int g_track;   /* extra space after every letter, in 2x pixels (the title is spaced out) */
 
 static int text_w2(int f, const char *s)
@@ -223,7 +224,7 @@ static void text(int f, int lx, int cy2, const char *s, u32 col, int a)
     int cw = wf_face_w[f], ch = wf_face_h[f], pad = wf_face_pad[f], asc = wf_face_asc[f], cap = wf_face_cap[f];
     const u8 *base = wf_font_blob + wf_face_off[f];
     int ytop = (cy2 * S) / 2 + (cap * S) / 4 - (asc * S) / 2;
-    int pen = 0;
+    int pen = g_dx2;
     while (*s) {
         int g = next_glyph(&s);
         const u8 *gl = base + (long)g * cw * ch;
@@ -486,7 +487,14 @@ static int hint(int x, const char *keys, const char *label)
     for (; *keys; keys++) {
         char s[2] = {*keys, 0};
         plate((float)x, 282.0f, 15, 15, 7.5f);
-        text(3, x + (15 - text_w(3, s)) / 2, 579, s, EDGE, 255);
+        {   /* centre the ink of the letter (not its advance width) in the round plate */
+            const char *q = s;
+            int g = next_glyph(&q);
+            const u8 *bb = wf_bb + (3 * WF_FONT_GLYPHS + g) * 4;
+            g_dx2 = 15 - ((bb[0] + bb[2]) / 2 - wf_face_pad[3]);
+            text(3, x, 579, s, EDGE, 255);
+            g_dx2 = 0;
+        }
         x += 19;
     }
     text(1, x, 579, label, FOOTC, 255);
@@ -506,6 +514,9 @@ static void paint_panel(void)
     text(2, 48, 95, "WAYFARER", WOOD, 255);
 #endif
     g_track = 0;
+#if LOGO_W > 0
+    text(1, 46 + 20 * LOGO_W / LOGO_H + 7, 98, "by melianluthien", 0x8a7440, 255);
+#endif
     text_r(3, 492, 96, WF_VERSION, 0x7a6234);
 
     for (int t = 0; t < TABS; t++) {
