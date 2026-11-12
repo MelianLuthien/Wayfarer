@@ -138,12 +138,12 @@ static int world_running(void)
  * absolute address stored in data would be wrong at runtime. */
 /* Strings live in one blob and are found by walking it: a chain of ifs can be
  * compiled into a table of pointers, which would need relocations. */
-static const char labels_blob[] = "God Mode\0Infinite Magic\0Infinite Rupees\0Infinite Items\0Chicken Gravity\0Flight\0Movement Speed\0Jump Height\0Switch Age";
+static const char labels_blob[] = "God Mode\0Infinite Magic\0Infinite Rupees\0Infinite Ammo\0Chicken Gravity\0Flight\0Movement Speed\0Jump Height\0Switch Age";
 static const char descs_blob[] =
     "Replenish your hearts automatically.\0"
     "Your magic never runs out.\0"
     "Your wallet is always full.\0"
-    "Ammo and consumables never run out.\0"
+    "Your ammo never runs out.\0"
     "Fall slowly, like carrying a chicken.\0"
     "Fly freely. Stick moves, ZR rises, ZL descends.\0"
     "Left / Right: run faster.\0"
