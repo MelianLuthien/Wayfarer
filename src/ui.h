@@ -468,13 +468,13 @@ static void arrow_btn(float cx, float cy, int dir)
 static void selector(int rx, int cy2, const char *val)
 {
     float cy = (float)cy2 * 0.5f;
-    int pw = text_w(2, val) + 12;
+    int pw = text_w(4, val) + 12;
     if (pw < 30) pw = 30;
     float px = (float)rx - 13.0f - 2.0f - (float)pw;
     arrow_btn((float)rx - 6.5f, cy, 1);
     rr(px, cy - 7.5f, (float)pw, 15, 4, 0, 0x24170c, 0x4a3320, 255);
     rr(px, cy - 7.5f, (float)pw, 15, 4, 1.2f, EDGE, EDGE, 255);
-    text_c(2, (int)(px + (float)pw * 0.5f), cy2, val, CREAMC);
+    text_c(4, (int)(px + (float)pw * 0.5f), cy2, val, CREAMC);
     arrow_btn(px - 2.0f - 6.5f, cy, -1);
 }
 
@@ -529,7 +529,7 @@ static void paint_panel(void)
             else {
                 static const char sp_txt[] = "1x\0" "1.5x\0" "2x\0" "3x";
                 static const char jp_txt[] = "1x\0" "2x\0" "3x\0" "5x";
-                selector(482, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
+                selector(488, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
             }
         }
         text(1, 48, 532, row_desc(g_sel), DESC, 255);
@@ -605,7 +605,7 @@ static void paint_panel(void)
                 t[0] = (char)('0' + g_hour / 10);
                 t[1] = (char)('0' + g_hour % 10);
                 t[2] = ':'; t[3] = '0'; t[4] = '0'; t[5] = 0;
-                selector(482, 2 * y + 26, t);
+                selector(488, 2 * y + 26, t);
             } else if (i == 4) {
                 slider(446, (float)y + 5, g_cheat[5] ? 1 : 0);
             }
