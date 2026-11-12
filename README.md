@@ -29,6 +29,11 @@ Press **R3** while you play and a carved-wood pause menu opens over the game. Wa
   <img src="docs/img/teleport.png" alt="The Teleport tab" width="49%">
 </p>
 
+<p align="center">
+  <img src="docs/img/items.png" alt="The Items tab" width="49%">
+  <img src="docs/img/world.png" alt="The World tab" width="49%">
+</p>
+
 ## Features
 
 ### Player
@@ -63,11 +68,6 @@ Every item in the game, as an icon grid: swords, shields, tunics, boots, bows an
 ### Teleport
 
 Thirty-one places, from Kokiri Forest to Ganon's Castle, sorted either **alphabetically** or in the **order you would discover them** on a first playthrough. Press **Y** to switch the sort and **X** to star your favorites; favorites always float to the top.
-
-<p align="center">
-  <img src="docs/img/items.png" alt="The Items tab" width="49%">
-  <img src="docs/img/world.png" alt="The World tab" width="49%">
-</p>
 
 ## Installation
 
