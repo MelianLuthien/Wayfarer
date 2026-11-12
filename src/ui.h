@@ -407,16 +407,75 @@ static void slider(int lx, float ly, int on)
     rr(kx - 3.0f, ky - 4.0f, 5.0f, 1.5f, 0.75f, 0, 0xffffff, 0xffffff, 110);            /* knob glint */
 }
 
-/* "‹ 2x ›", right-aligned at logical rx. */
+/* Signed distance from (px, py) to a triangle (negative inside); the usual exact formula. */
+static float sd_tri(float px, float py, const float *t)
+{
+    float e[3][2], v[3][2], dd = 1e30f, ds = 1e30f;
+    for (int i = 0; i < 3; i++) {
+        int j = (i + 1) % 3;
+        e[i][0] = t[2 * j] - t[2 * i]; e[i][1] = t[2 * j + 1] - t[2 * i + 1];
+        v[i][0] = px - t[2 * i]; v[i][1] = py - t[2 * i + 1];
+    }
+    float sg = e[0][0] * e[2][1] - e[0][1] * e[2][0];
+    sg = sg < 0 ? -1.0f : 1.0f;
+    for (int i = 0; i < 3; i++) {
+        float k = (v[i][0] * e[i][0] + v[i][1] * e[i][1]) / (e[i][0] * e[i][0] + e[i][1] * e[i][1]);
+        k = k < 0 ? 0 : k > 1 ? 1 : k;
+        float qx = v[i][0] - e[i][0] * k, qy = v[i][1] - e[i][1] * k;
+        float q2 = qx * qx + qy * qy, c = sg * (v[i][0] * e[i][1] - v[i][1] * e[i][0]);
+        if (q2 < dd) dd = q2;
+        if (c < ds) ds = c;
+    }
+    float d = fsq(dd);
+    return ds > 0 ? -d : d;
+}
+
+/* A rounded triangle pointing left (dir -1) or right (dir 1), w wide and h high, centred at (cx, cy).
+ * shrink pulls the edge in (logical units); the fill runs from c0 at the top to c1 at the bottom. */
+static void tri(float cx, float cy, float w, float h, int dir, float shrink, u32 c0, u32 c1, int a)
+{
+    float L = fsq(w * w + h * h * 0.25f), area = w * h * 0.5f, rho = area / (L + h * 0.5f);
+    float k = 0.62f, r = (1.0f - k) * rho + 0.0f;
+    float vx[3] = {-w * 0.5f * dir, w * 0.5f * dir, -w * 0.5f * dir}, vy[3] = {-h * 0.5f, 0.0f, h * 0.5f};
+    float gx = (vx[0] + vx[1] + vx[2]) / 3.0f, t[6];
+    for (int i = 0; i < 3; i++) { t[2 * i] = cx + gx + k * (vx[i] - gx); t[2 * i + 1] = cy + k * vy[i]; }
+    int S = g_S;
+    float inv = 1.0f / (float)S;
+    for (int j = (int)((cy - h * 0.5f - 2) * S); j < (int)((cy + h * 0.5f + 2) * S); j++) {
+        float Y = ((float)j + 0.5f) * inv, tt = (Y - (cy - h * 0.5f)) / h;
+        tt = tt < 0 ? 0 : tt > 1 ? 1 : tt;
+        int rr_ = lerp8(CR(c0), CR(c1), tt), gg = lerp8(CG(c0), CG(c1), tt), bb = lerp8(CB(c0), CB(c1), tt);
+        for (int i = (int)((cx - w * 0.5f - 2) * S); i < (int)((cx + w * 0.5f + 2) * S); i++) {
+            float X = ((float)i + 0.5f) * inv;
+            float sd = sd_tri(X, Y, t) - r + shrink, co = 0.5f - sd * (float)S;
+            if (co <= 0) continue;
+            if (co > 1) co = 1;
+            blend(i, j, rr_, gg, bb, (int)((float)a * co));
+        }
+    }
+}
+
+/* One wooden arrow button, like the amber carved triangles of the reference. */
+static void arrow_btn(float cx, float cy, int dir)
+{
+    tri(cx, cy + 0.8f, 13, 16, dir, 0, 0, 0, 70);
+    tri(cx, cy, 13, 16, dir, 0, 0x6b3d1c, 0x3a2010, 255);
+    tri(cx, cy, 13, 16, dir, 1.2f, AMB0, AMB1, 255);
+    tri(cx - 0.3f * (float)dir, cy - 1.0f, 9, 8, dir, 0.6f, 0xffffff, 0xffe0a0, 80);
+}
+
+/* "(<) [ 2x ] (>)": two wooden arrows around a small dark plank with the value, right edge at logical rx. */
 static void selector(int rx, int cy2, const char *val)
 {
-    char b[32];
-    int n = 0;
-    for (const char *p = "\xE2\x80\xB9 "; *p; p++) b[n++] = *p;
-    while (*val && n < 24) b[n++] = *val++;
-    for (const char *p = " \xE2\x80\xBA"; *p; p++) b[n++] = *p;
-    b[n] = 0;
-    text_r(0, rx, cy2, b, GREEN);
+    float cy = (float)cy2 * 0.5f;
+    int pw = text_w(2, val) + 12;
+    if (pw < 30) pw = 30;
+    float px = (float)rx - 13.0f - 2.0f - (float)pw;
+    arrow_btn((float)rx - 6.5f, cy, 1);
+    rr(px, cy - 7.5f, (float)pw, 15, 4, 0, 0x24170c, 0x4a3320, 255);
+    rr(px, cy - 7.5f, (float)pw, 15, 4, 1.2f, EDGE, EDGE, 255);
+    text_c(2, (int)(px + (float)pw * 0.5f), cy2, val, CREAMC);
+    arrow_btn(px - 2.0f - 6.5f, cy, -1);
 }
 
 /* One hint in the footer: a round button glyph per key, then a label. Returns where the next hint starts. */
