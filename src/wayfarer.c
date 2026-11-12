@@ -1,10 +1,10 @@
 /*
- * Wayfarer: stage 2. Loads as a Switch ExeFS module (subsdk8), finds the game's
- * `main`, hooks the controller and the graphics present call, and shows a basic
- * cheat menu on R3. The cheats themselves are not wired up yet (stage 3).
+ * Wayfarer: an in-game cheat menu for Ocarina of Time Remake 1.1.1, by melianluthien. Loads as a
+ * Switch ExeFS module (subsdk8), finds the game's `main`, hooks the controller and the graphics
+ * present call, and shows the menu on R3.
  *
- * The hook plumbing (IPS trampolines + bridge table in main's bss) follows the
- * layout reverse-engineered from the Hyrule Cheat Menu rc1; see docs/RESEARCH.md.
+ * The hook plumbing (IPS trampolines + bridge table in main's bss) follows the layout
+ * reverse-engineered from the Hyrule Cheat Menu rc1; see docs/RESEARCH.md.
  * GPL-3.0.
  */
 typedef unsigned long long u64;

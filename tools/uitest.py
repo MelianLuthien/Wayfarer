@@ -20,8 +20,7 @@ os.makedirs(OUT, exist_ok=True)
 
 src = open(os.path.join(ROOT, "src", "wayfarer.c"), encoding="utf-8").read()
 a = src.index('#include "destinations.h"')
-m = re.search(r"static volatile int g_jump;[^\n]*\n", src)
-state = src[a:m.end()]
+state = src[a:src.index("/* ---- the controller hook")]
 version = re.search(r'#define WF_VERSION "([^"]*)"', src).group(1)
 
 main = r'''
@@ -36,6 +35,9 @@ typedef unsigned char u8;
 #include "icons.h"
 static const u8 *wf_font_blob, *wf_panel_blob, *wf_icon_blob, *wf_logo_blob;
 #define WF_VERSION "%(version)s"
+static void dbg(const char *s) { (void)s; }
+static void dbgx(const char *s, u64 v) { (void)s; (void)v; }
+static int world_running(void) { return 1; }
 %(state)s
 #include "ui.h"
 
@@ -81,13 +83,13 @@ int main(int argc, char **argv)
     g_speed = 2; g_jump = 1;
     for (int i = 0; i < ITEM_COUNT; i++) g_icount[i] = (i * 7) %% 5 == 0 ? 0 : (ITEM_IS_QTY(i) ? 10 + i : 1);
 
-    g_tab = 0; g_sel = 1; paint_panel(); shot(out, "tab0");
-    g_sel = 5; paint_panel(); shot(out, "tab0b");
+    g_tab = 0; g_sel = 0; paint_panel(); shot(out, "tab0");
+    g_sel = 6; paint_panel(); shot(out, "tab0b");
     g_tab = 1; g_isel = 14; paint_panel(); shot(out, "tab1");
     g_isel = 62; paint_panel(); shot(out, "tab1b");
-    g_tab = 2; g_wsel = 0; paint_panel(); shot(out, "tab2");
-    g_wsel = 4; paint_panel(); shot(out, "tab2b");
-    g_tab = 3; g_tsel = 3; paint_panel(); shot(out, "tab3");
+    g_tab = 2; g_wsel = 2; paint_panel(); shot(out, "tab2");
+    g_wsel = 3; paint_panel(); shot(out, "tab2b");
+    g_tab = 3; g_tfav = (1u << 4) | (1u << 20); g_tsort = 1; g_tl_ok = 0; g_tsel = 2; paint_panel(); shot(out, "tab3");
     g_tab = 0; g_dlg = 1; paint_panel(); shot(out, "dialog");
     return 0;
 }
