@@ -277,6 +277,28 @@ def up_to_date():
     return all(os.path.getmtime(f) < t for f in ins + [os.path.abspath(__file__)])
 
 
+UNPINK = {"bottle", "scale_silver", "scale_gold"}   # glass items: the magenta background shows through them
+
+
+def unpink(im):
+    """Take the magenta out of see-through glass. A pixel over the magenta key is alpha * item + (1 - alpha) * magenta,
+    so the magenta share is min(red, blue) - green: that share becomes transparency, and what is left of a
+    glass pixel is tinted toward cool white instead of pink."""
+    a = np.array(im.convert("RGBA")).astype(float)
+    r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
+    m = np.clip(np.minimum(r, b) - g, 0, 255) / 255.0       # share of magenta in the pixel
+    keep = np.clip(1.0 - m * 1.05, 0.0, 1.0)                 # how much of the pixel is item
+    glass = np.clip(m * 1.6, 0, 1)                           # 1 where it is all glass
+    fg = np.stack([r, g, b], -1)
+    fg = (fg - (1 - keep)[..., None] * np.array([255.0, 0.0, 255.0])) / np.maximum(keep, 0.2)[..., None]
+    fg = np.clip(fg, 0, 255)
+    tint = np.array([226.0, 236.0, 246.0])
+    fg = fg * (1 - glass[..., None]) + tint * glass[..., None]
+    a[..., :3] = fg
+    a[..., 3] = al * np.maximum(keep, 0.30 * (al > 0))      # keep glass faintly visible
+    return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
+
+
 def main():
     if up_to_date():
         print("art already cut and newer than its sources (use --force to cut again)")
@@ -287,6 +309,8 @@ def main():
     items = []  # (name, icon128, placeholder)
 
     def save(name, full, sheet, cell):
+        if name in UNPINK:
+            full = unpink(full)
         full.save(os.path.join(OUT, "full", name + ".png"))
         ic = fit(full)
         ic.save(os.path.join(OUT, "icon128", name + ".png"))
