@@ -133,7 +133,16 @@ static void speed_step(u64 a)
             if (*vy < -3.5f) *vy = -3.5f;
             if (*ay < -3.5f) *ay = -3.5f;
             if (*by < -3.5f) *by = -3.5f;
-            { float *cp = (float *)(c + 0x6d8); if (*cp < -3.5f) *cp = -3.5f; }   /* the controller's own copy of the actor's speed */
+            { float *cp = (float *)(c + 0x6d8); if (*cp < -3.5f) *cp = -3.5f; }
+            {   /* the object at controller +0x20 holds two more copies of the speed (found by the scan) */
+                u64 o = *(u64 *)(c + 0x20);
+                if (o && !(o & 7)) {
+                    float *q1 = (float *)(o + 0xe4), *q2 = (float *)(o + 0x21c);
+                    if (g_clamp_log >= 30 && g_clamp_log < 36) { dbgx("obj e4 bits", *(u32 *)q1); dbgx("obj 21c bits", *(u32 *)q2); }
+                    if (*q1 < -3.5f) *q1 = -3.5f;
+                    if (*q2 < -3.5f) *q2 = -3.5f;
+                }
+            }   /* the controller's own copy of the actor's speed */
         } else if (!falling) g_clamp_log = 0;
         if ((moving || jumping || falling) && (d2 + dy * dy < 1.0f || (falling && !jumping && d2 < 1.0f && dy > -8.0f))) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));
