@@ -89,9 +89,66 @@ static int item_count_of(int item)
 static u32 g_icnt_tick;
 static volatile int g_icnt_dirty;
 
+/* One-time probe (v1.1 test build): where does the game keep "I know this song"? Logs, per song, whether a few
+ * candidate names exist as game-data flags (and their value) and whether the pouch's hash map knows the name. */
+#define FN_HASH         0x1739e0ull    /* (const char *, 0) -> murmur3 hash */
+static int g_probe_done;
+
+static void probe_name(const char *pre, const char *song, const char *label)
+{
+    char nm[96];
+    int n = 0;
+    for (; pre[n] && n < 40; n++) nm[n] = pre[n];
+    for (int k = 0; song[k] && n < 90; k++) nm[n++] = song[k];
+    nm[n] = 0;
+    u64 b = g_base, gh = *(u64 *)(b + OFF_GD_HOLDER);
+    void *gd = gh ? *(void **)gh : 0, *pm = *(void **)(b + OFF_PM);
+    u32 h = ((u32 (*)(const char *, int))(b + FN_HASH))(nm, 0);
+    u8 v1 = 0, v2 = 0;
+    u64 r = 0;
+    if (gd) {
+        r |= (u64)(((FnBoolGet)(b + FN_BOOLGET))(gd, &v1, h) & 1);
+        r |= (u64)v1 << 8;
+        r |= (u64)(((FnBoolGet)(b + FN_BOOL2))(gd, &v2, h) & 1) << 16;
+        r |= (u64)v2 << 24;
+    }
+    u64 mp = 0xffff;
+    if (pm) {
+        u64 t = *(u64 *)((u64)pm + 0x3bb0);
+        u64 arr = t ? *(u64 *)(t + 8) : 0;
+        u32 sz = t ? *(u32 *)(t + 0x14) : 0;
+        if (arr && sz) {
+            u32 slot = h % sz;
+            for (u32 i = 0; i < sz; i++, slot = (slot + 1) % sz) {
+                u32 key = *(u32 *)(arr + slot * 8ull);
+                if (key == h) { mp = *(u32 *)(arr + slot * 8ull + 4); break; }
+                if (!key) break;
+            }
+        }
+    }
+    dbgx(label, r | (mp << 32));
+}
+
+static void probe_songs(void)
+{
+    static const char sn[] = "ZeldaLullaby\0EponaSong\0SariaSong\0SunSong\0TimeSong\0StormSong\0ForestMinuet\0FireBolero\0"
+                             "WaterSerenade\0ShadowNocturne\0SpiritRequiem\0LightPrelude\0";
+    for (int i = 0; i < 12; i++) {
+        const char *s = nth(sn, i);
+        dbgx("probe song", (u64)i);
+        probe_name("Item_Melody_", s, "probe Item_Melody_ (pm<<32 | b2v<<24 | b2f<<16 | bv<<8 | bf)");
+        probe_name("OcarinaMelody", s, "probe OcarinaMelody");
+        probe_name("Melody_", s, "probe Melody_");
+        probe_name("IsGet_Melody_", s, "probe IsGet_Melody_");
+        probe_name("Learned", s, "probe Learned");
+    }
+    dbgx("probe done, pouch map size", (u64)*(u32 *)(*(u64 *)((u64)*(void **)(g_base + OFF_PM) + 0x3bb0) + 0x14));
+}
+
 static void refresh_counts(void)
 {
     if (!game_ready()) return;
+    if (!g_probe_done) { g_probe_done = 1; probe_songs(); }
     for (int i = 0; i < ITEM_COUNT; i++) {
         int c = item_count_of(i);
         if (c != g_icount[i]) { g_icount[i] = c; g_gen++; }
