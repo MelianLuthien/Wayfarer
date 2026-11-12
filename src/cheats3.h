@@ -91,6 +91,20 @@ static void speed_step(u64 a)
         int moving = d2 > 4e-4f;   /* below this it is idle sway or floor snapping: scaling that makes Link fidget */
         /* chicken gravity: falling (not walking downhill) is slowed to a float, like carrying a cucco */
         int falling = g_cheat[6] && dy < -0.03f && (dy * dy > d2 || dy < g_sp_pdy - 0.002f);
+        {   /* probe: with Chicken Gravity OFF, dump Link's actor and controller on the 25th frame of a fall (a normal fall, then a fall holding a cucco) */
+            static int air, dumps;
+            int dn = !g_cheat[6] && dy < -0.03f && (dy * dy > d2 || dy < g_sp_pdy - 0.002f);
+            air = dn ? air + 1 : 0;
+            if (air == 25 && dumps < 4) {
+                dbgx("DUMP number", (u64)dumps);
+                for (int who = 0; who < 2; who++)
+                    for (int i = 0; i < 512; i++) {
+                        u32 w = *(u32 *)((who ? c : a) + i * 4);
+                        if (w) { dbgx("dump off", ((u64)who << 16) | (u64)(i * 4)); dbgx("dump word", w); }
+                    }
+                dumps++;
+            }
+        }
         g_sp_pdy = dy;
         /* The game's own downward speed (controller +0x2d4, in units per second) keeps growing the longer you fall;
          * past a limit it plays the freefall animation and hurts. Holding it down keeps a fall a gentle float. */
