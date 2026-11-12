@@ -148,10 +148,10 @@ static void probe_songs(void)
 
 /* Song probe 2: what changes in memory when a song is added or removed? Snapshot before, diff after. */
 #define SNAP_PM 0x3c00
-#define SNAP_GD 8192
+#define SNAP_GD 32768
 static u64 g_pm_snap[SNAP_PM / 8];
 static u8 g_gd_snap[SNAP_GD];
-static u64 g_int_snap[4096 * 4];
+static u64 g_int_snap[16384 * 4];
 static int g_snap_have, g_snap_pending;
 
 static u32 gd_int_count(void)
@@ -160,7 +160,7 @@ static u32 gd_int_count(void)
     u64 gd = gh ? *(u64 *)gh : 0;
     if (!gd || !*(u64 *)(gd + 0xc18)) return 0;
     u32 n = *(u32 *)(gd + 0xc10);
-    return n > 4096 ? 4096 : n;
+    return n > 16384 ? 16384 : n;
 }
 
 static u32 gd_bool_count(void)
@@ -192,6 +192,11 @@ static void snap_diff(void)
 {
     u64 pm = *(u64 *)(g_base + OFF_PM);
     if (!pm || !g_snap_have) return;
+    {
+        u64 gh0 = *(u64 *)(g_base + OFF_GD_HOLDER), gd0 = gh0 ? *(u64 *)gh0 : 0;
+        dbgx("snap sizes: bool count", gd0 ? *(u32 *)(gd0 + 16) : 0);
+        dbgx("snap sizes: int count", gd0 ? *(u32 *)(gd0 + 0xc10) : 0);
+    }
     int shown = 0;
     for (int i = 0; i < SNAP_PM / 8 && shown < 24; i++) {
         u64 now = *(u64 *)(pm + i * 8ull);
