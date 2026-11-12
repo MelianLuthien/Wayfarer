@@ -1,0 +1,1122 @@
+[
+ {
+  "name": "frame_corner",
+  "sheet": 1,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   416,
+   411
+  ]
+ },
+ {
+  "name": "frame_edge",
+  "sheet": 1,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   504,
+   186
+  ]
+ },
+ {
+  "name": "header_cap",
+  "sheet": 1,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   504,
+   241
+  ]
+ },
+ {
+  "name": "header_mid",
+  "sheet": 1,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   504,
+   202
+  ]
+ },
+ {
+  "name": "tab_player",
+  "sheet": 2,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   398,
+   395
+  ]
+ },
+ {
+  "name": "tab_items",
+  "sheet": 2,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   398,
+   396
+  ]
+ },
+ {
+  "name": "tab_world",
+  "sheet": 2,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   398,
+   396
+  ]
+ },
+ {
+  "name": "tab_teleport",
+  "sheet": 2,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   397,
+   396
+  ]
+ },
+ {
+  "name": "tag_child",
+  "sheet": 2,
+  "cell": 4,
+  "placeholder": false,
+  "full_size": [
+   398,
+   396
+  ]
+ },
+ {
+  "name": "tag_adult",
+  "sheet": 2,
+  "cell": 5,
+  "placeholder": false,
+  "full_size": [
+   398,
+   396
+  ]
+ },
+ {
+  "name": "row_god",
+  "sheet": 3,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   272,
+   271
+  ]
+ },
+ {
+  "name": "row_rupees",
+  "sheet": 3,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   271,
+   271
+  ]
+ },
+ {
+  "name": "row_magic",
+  "sheet": 3,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   271,
+   271
+  ]
+ },
+ {
+  "name": "row_items",
+  "sheet": 3,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   271,
+   271
+  ]
+ },
+ {
+  "name": "row_fly",
+  "sheet": 3,
+  "cell": 4,
+  "placeholder": false,
+  "full_size": [
+   272,
+   270
+  ]
+ },
+ {
+  "name": "row_age",
+  "sheet": 3,
+  "cell": 5,
+  "placeholder": false,
+  "full_size": [
+   272,
+   270
+  ]
+ },
+ {
+  "name": "row_time",
+  "sheet": 3,
+  "cell": 6,
+  "placeholder": false,
+  "full_size": [
+   272,
+   270
+  ]
+ },
+ {
+  "name": "row_camera",
+  "sheet": 3,
+  "cell": 7,
+  "placeholder": false,
+  "full_size": [
+   272,
+   270
+  ]
+ },
+ {
+  "name": "row_mark",
+  "sheet": 3,
+  "cell": 8,
+  "placeholder": false,
+  "full_size": [
+   272,
+   269
+  ]
+ },
+ {
+  "name": "row_return",
+  "sheet": 3,
+  "cell": 9,
+  "placeholder": false,
+  "full_size": [
+   272,
+   269
+  ]
+ },
+ {
+  "name": "row_info",
+  "sheet": 3,
+  "cell": 10,
+  "placeholder": false,
+  "full_size": [
+   271,
+   269
+  ]
+ },
+ {
+  "name": "sword_kokiri",
+  "sheet": 4,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   220,
+   268
+  ]
+ },
+ {
+  "name": "sword_master",
+  "sheet": 4,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   231,
+   273
+  ]
+ },
+ {
+  "name": "sword_giant",
+  "sheet": 4,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   237,
+   276
+  ]
+ },
+ {
+  "name": "sword_biggoron",
+  "sheet": 4,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   240,
+   274
+  ]
+ },
+ {
+  "name": "shield_deku",
+  "sheet": 4,
+  "cell": 4,
+  "placeholder": false,
+  "full_size": [
+   222,
+   241
+  ]
+ },
+ {
+  "name": "shield_hylian",
+  "sheet": 4,
+  "cell": 5,
+  "placeholder": false,
+  "full_size": [
+   221,
+   269
+  ]
+ },
+ {
+  "name": "shield_mirror",
+  "sheet": 4,
+  "cell": 6,
+  "placeholder": false,
+  "full_size": [
+   207,
+   273
+  ]
+ },
+ {
+  "name": "tunic_goron",
+  "sheet": 4,
+  "cell": 7,
+  "placeholder": false,
+  "full_size": [
+   215,
+   242
+  ]
+ },
+ {
+  "name": "tunic_zora",
+  "sheet": 4,
+  "cell": 8,
+  "placeholder": false,
+  "full_size": [
+   211,
+   249
+  ]
+ },
+ {
+  "name": "boots_iron",
+  "sheet": 4,
+  "cell": 9,
+  "placeholder": false,
+  "full_size": [
+   230,
+   248
+  ]
+ },
+ {
+  "name": "boots_hover",
+  "sheet": 4,
+  "cell": 10,
+  "placeholder": false,
+  "full_size": [
+   246,
+   244
+  ]
+ },
+ {
+  "name": "stick",
+  "sheet": 5,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   241,
+   266
+  ]
+ },
+ {
+  "name": "nut",
+  "sheet": 5,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   240,
+   208
+  ]
+ },
+ {
+  "name": "bomb",
+  "sheet": 5,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   210,
+   223
+  ]
+ },
+ {
+  "name": "bombchu",
+  "sheet": 5,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   277,
+   205
+  ]
+ },
+ {
+  "name": "slingshot",
+  "sheet": 5,
+  "cell": 4,
+  "placeholder": false,
+  "full_size": [
+   211,
+   263
+  ]
+ },
+ {
+  "name": "seeds",
+  "sheet": 5,
+  "cell": 5,
+  "placeholder": false,
+  "full_size": [
+   183,
+   197
+  ]
+ },
+ {
+  "name": "bow",
+  "sheet": 5,
+  "cell": 6,
+  "placeholder": false,
+  "full_size": [
+   269,
+   273
+  ]
+ },
+ {
+  "name": "arrow",
+  "sheet": 5,
+  "cell": 7,
+  "placeholder": false,
+  "full_size": [
+   249,
+   253
+  ]
+ },
+ {
+  "name": "arrow_fire",
+  "sheet": 5,
+  "cell": 8,
+  "placeholder": false,
+  "full_size": [
+   261,
+   267
+  ]
+ },
+ {
+  "name": "arrow_ice",
+  "sheet": 5,
+  "cell": 9,
+  "placeholder": false,
+  "full_size": [
+   255,
+   263
+  ]
+ },
+ {
+  "name": "arrow_light",
+  "sheet": 5,
+  "cell": 10,
+  "placeholder": false,
+  "full_size": [
+   256,
+   263
+  ]
+ },
+ {
+  "name": "dins_fire",
+  "sheet": 5,
+  "cell": 11,
+  "placeholder": false,
+  "full_size": [
+   201,
+   282
+  ]
+ },
+ {
+  "name": "farores_wind",
+  "sheet": 6,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   157,
+   217
+  ]
+ },
+ {
+  "name": "nayrus_love",
+  "sheet": 6,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   161,
+   216
+  ]
+ },
+ {
+  "name": "ocarina_fairy",
+  "sheet": 6,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   192,
+   138
+  ]
+ },
+ {
+  "name": "ocarina_time",
+  "sheet": 6,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   217,
+   147
+  ]
+ },
+ {
+  "name": "hookshot",
+  "sheet": 6,
+  "cell": 4,
+  "placeholder": false,
+  "full_size": [
+   202,
+   203
+  ]
+ },
+ {
+  "name": "longshot",
+  "sheet": 6,
+  "cell": 5,
+  "placeholder": false,
+  "full_size": [
+   224,
+   227
+  ]
+ },
+ {
+  "name": "boomerang",
+  "sheet": 6,
+  "cell": 6,
+  "placeholder": false,
+  "full_size": [
+   120,
+   233
+  ]
+ },
+ {
+  "name": "lens",
+  "sheet": 6,
+  "cell": 7,
+  "placeholder": false,
+  "full_size": [
+   212,
+   128
+  ]
+ },
+ {
+  "name": "bean",
+  "sheet": 6,
+  "cell": 8,
+  "placeholder": false,
+  "full_size": [
+   216,
+   211
+  ]
+ },
+ {
+  "name": "hammer",
+  "sheet": 6,
+  "cell": 9,
+  "placeholder": false,
+  "full_size": [
+   224,
+   269
+  ]
+ },
+ {
+  "name": "bottle",
+  "sheet": 6,
+  "cell": 10,
+  "placeholder": false,
+  "full_size": [
+   140,
+   203
+  ]
+ },
+ {
+  "name": "mask_keaton",
+  "sheet": 7,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   189,
+   255
+  ]
+ },
+ {
+  "name": "mask_skull",
+  "sheet": 7,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   273,
+   166
+  ]
+ },
+ {
+  "name": "mask_spooky",
+  "sheet": 7,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   169,
+   202
+  ]
+ },
+ {
+  "name": "mask_bunny",
+  "sheet": 7,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   210,
+   298
+  ]
+ },
+ {
+  "name": "mask_goron",
+  "sheet": 7,
+  "cell": 4,
+  "placeholder": false,
+  "full_size": [
+   217,
+   203
+  ]
+ },
+ {
+  "name": "mask_zora",
+  "sheet": 7,
+  "cell": 5,
+  "placeholder": false,
+  "full_size": [
+   286,
+   188
+  ]
+ },
+ {
+  "name": "mask_gerudo",
+  "sheet": 7,
+  "cell": 6,
+  "placeholder": false,
+  "full_size": [
+   219,
+   220
+  ]
+ },
+ {
+  "name": "mask_truth",
+  "sheet": 7,
+  "cell": 7,
+  "placeholder": false,
+  "full_size": [
+   207,
+   228
+  ]
+ },
+ {
+  "name": "bracelet",
+  "sheet": 8,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   171,
+   154
+  ]
+ },
+ {
+  "name": "gauntlets_silver",
+  "sheet": 8,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   167,
+   213
+  ]
+ },
+ {
+  "name": "gauntlets_gold",
+  "sheet": 8,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   170,
+   214
+  ]
+ },
+ {
+  "name": "scale_silver",
+  "sheet": 8,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   187,
+   187
+  ]
+ },
+ {
+  "name": "scale_gold",
+  "sheet": 8,
+  "cell": 4,
+  "placeholder": false,
+  "full_size": [
+   186,
+   187
+  ]
+ },
+ {
+  "name": "bombbag_1",
+  "sheet": 8,
+  "cell": 5,
+  "placeholder": false,
+  "full_size": [
+   189,
+   200
+  ]
+ },
+ {
+  "name": "bombbag_2",
+  "sheet": 8,
+  "cell": 6,
+  "placeholder": false,
+  "full_size": [
+   153,
+   212
+  ]
+ },
+ {
+  "name": "bombbag_3",
+  "sheet": 8,
+  "cell": 7,
+  "placeholder": false,
+  "full_size": [
+   173,
+   215
+  ]
+ },
+ {
+  "name": "quiver_1",
+  "sheet": 8,
+  "cell": 8,
+  "placeholder": false,
+  "full_size": [
+   180,
+   212
+  ]
+ },
+ {
+  "name": "quiver_2",
+  "sheet": 8,
+  "cell": 9,
+  "placeholder": false,
+  "full_size": [
+   189,
+   217
+  ]
+ },
+ {
+  "name": "quiver_3",
+  "sheet": 8,
+  "cell": 10,
+  "placeholder": false,
+  "full_size": [
+   191,
+   217
+  ]
+ },
+ {
+  "name": "seedbag_1",
+  "sheet": 8,
+  "cell": 11,
+  "placeholder": false,
+  "full_size": [
+   204,
+   197
+  ]
+ },
+ {
+  "name": "seedbag_2",
+  "sheet": 8,
+  "cell": 12,
+  "placeholder": false,
+  "full_size": [
+   206,
+   200
+  ]
+ },
+ {
+  "name": "seedbag_3",
+  "sheet": 8,
+  "cell": 13,
+  "placeholder": false,
+  "full_size": [
+   219,
+   212
+  ]
+ },
+ {
+  "name": "stone_kokiri",
+  "sheet": 9,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   166,
+   213
+  ]
+ },
+ {
+  "name": "stone_goron",
+  "sheet": 9,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   203,
+   187
+  ]
+ },
+ {
+  "name": "stone_zora",
+  "sheet": 9,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   247,
+   191
+  ]
+ },
+ {
+  "name": "medal_forest",
+  "sheet": 9,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   207,
+   211
+  ]
+ },
+ {
+  "name": "medal_fire",
+  "sheet": 9,
+  "cell": 4,
+  "placeholder": false,
+  "full_size": [
+   217,
+   216
+  ]
+ },
+ {
+  "name": "medal_water",
+  "sheet": 9,
+  "cell": 5,
+  "placeholder": false,
+  "full_size": [
+   218,
+   216
+  ]
+ },
+ {
+  "name": "medal_shadow",
+  "sheet": 9,
+  "cell": 6,
+  "placeholder": false,
+  "full_size": [
+   217,
+   216
+  ]
+ },
+ {
+  "name": "medal_spirit",
+  "sheet": 9,
+  "cell": 7,
+  "placeholder": false,
+  "full_size": [
+   217,
+   216
+  ]
+ },
+ {
+  "name": "medal_light",
+  "sheet": 9,
+  "cell": 8,
+  "placeholder": false,
+  "full_size": [
+   226,
+   227
+  ]
+ },
+ {
+  "name": "stone_agony",
+  "sheet": 9,
+  "cell": 9,
+  "placeholder": false,
+  "full_size": [
+   150,
+   161
+  ]
+ },
+ {
+  "name": "card_gerudo",
+  "sheet": 9,
+  "cell": 10,
+  "placeholder": false,
+  "full_size": [
+   213,
+   266
+  ]
+ },
+ {
+  "name": "skulltula",
+  "sheet": 9,
+  "cell": 11,
+  "placeholder": false,
+  "full_size": [
+   190,
+   199
+  ]
+ },
+ {
+  "name": "wallet_adult",
+  "sheet": 12,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   274,
+   405
+  ]
+ },
+ {
+  "name": "wallet_giant",
+  "sheet": 12,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   305,
+   410
+  ]
+ },
+ {
+  "name": "magic_meter",
+  "sheet": 12,
+  "cell": 2,
+  "placeholder": false,
+  "full_size": [
+   351,
+   371
+  ]
+ },
+ {
+  "name": "magic_extended",
+  "sheet": 12,
+  "cell": 3,
+  "placeholder": false,
+  "full_size": [
+   351,
+   375
+  ]
+ },
+ {
+  "name": "double_defense",
+  "sheet": 12,
+  "cell": 4,
+  "placeholder": false,
+  "full_size": [
+   351,
+   375
+  ]
+ },
+ {
+  "name": "brand_logo",
+  "sheet": 11,
+  "cell": 0,
+  "placeholder": false,
+  "full_size": [
+   685,
+   662
+  ]
+ },
+ {
+  "name": "brand_emblem",
+  "sheet": 11,
+  "cell": 1,
+  "placeholder": false,
+  "full_size": [
+   609,
+   598
+  ]
+ },
+ {
+  "name": "row_speed",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   272,
+   270
+  ]
+ },
+ {
+  "name": "row_jump",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   272,
+   270
+  ]
+ },
+ {
+  "name": "row_chicken",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   272,
+   270
+  ]
+ },
+ {
+  "name": "row_star",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_zelda",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_time",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_sun",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_storms",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_epona",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_saria",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_minuet",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_bolero",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_serenade",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_requiem",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_nocturne",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ },
+ {
+  "name": "song_prelude",
+  "sheet": null,
+  "cell": null,
+  "placeholder": false,
+  "full_size": [
+   128,
+   128
+  ]
+ }
+]

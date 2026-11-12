@@ -42,6 +42,13 @@ def main():
     os.makedirs(dist, exist_ok=True)
     elf = os.path.join(build, "wayfarer.elf")
 
+    # A fresh clone has no build/art (it is made from the artist's source sheets, which are not in the repo):
+    # start from the finished pieces kept in art/.
+    art_out = os.path.join(build, "art")
+    if not os.path.exists(os.path.join(art_out, "manifest.json")):
+        import shutil
+        shutil.copytree(os.path.join(ROOT, "art"), art_out, dirs_exist_ok=True)
+
     # Pack the icon art into build/art/icons64.bin and src/icons.h (empty when there is no art yet).
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "packicons.py")], check=True)
     subprocess.run([sys.executable, os.path.join(ROOT, "tools", "genfont.py")], check=True)
