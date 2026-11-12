@@ -299,6 +299,31 @@ def unpink(im):
     return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
 
 
+def bunny_yellow(im):
+    """The sheet drew the Bunny Hood green; it is yellow. Turn the green hue to yellow, warm it a little, and make the
+    plum-coloured outline dark brown (the pink inside of the ears stays)."""
+    a = np.array(im.convert("RGBA")).astype(float)
+    al = a[..., 3].copy()
+    hsv = np.array(Image.fromarray(a[..., :3].astype(np.uint8)).convert("HSV")).astype(float)
+    h, sat, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    green = (h > 40) & (h < 110) & (sat > 50)        # PIL hue is 0..255: green is about 60 to 100
+    h = np.where(green, 29.0 + (h - 40) * 0.08, h)  # golden yellow, about 42 degrees
+    sat = np.where(green, np.minimum(255, sat * 1.05), sat)
+    v = np.where(green, np.minimum(255, v * 1.38 + 34), v)
+    rgb = np.array(Image.fromarray(np.stack([h, sat, v], -1).astype(np.uint8), "HSV").convert("RGB")).astype(float)
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    ol = (r - g > 20) & (b - g > 10) & (r < 115)     # the plum outline
+    lum = (r + b) / 2
+    rgb[..., 0] = np.where(ol, lum * 0.9 + 8, r)
+    rgb[..., 1] = np.where(ol, lum * 0.5 + 4, g)
+    rgb[..., 2] = np.where(ol, lum * 0.35 + 3, b)
+    cord = (r - g > 20) & (b - g > 10) & (r >= 115) & (r < 200)   # the cord, tinted purple by the key
+    for c, t in enumerate((228.0, 208.0, 168.0)):
+        rgb[..., c] = np.where(cord, 0.35 * rgb[..., c] + 0.65 * t, rgb[..., c])
+    out = np.dstack([rgb, al])
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+
+
 def main():
     if up_to_date():
         print("art already cut and newer than its sources (use --force to cut again)")
@@ -311,6 +336,8 @@ def main():
     def save(name, full, sheet, cell):
         if name in UNPINK:
             full = unpink(full)
+        if name == "mask_bunny":
+            full = bunny_yellow(full)
         full.save(os.path.join(OUT, "full", name + ".png"))
         ic = fit(full)
         ic.save(os.path.join(OUT, "icon128", name + ".png"))
