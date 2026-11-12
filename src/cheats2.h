@@ -151,7 +151,17 @@ static void probe_songs(void)
 #define SNAP_GD 8192
 static u64 g_pm_snap[SNAP_PM / 8];
 static u8 g_gd_snap[SNAP_GD];
+static u64 g_int_snap[4096 * 4];
 static int g_snap_have, g_snap_pending;
+
+static u32 gd_int_count(void)
+{
+    u64 gh = *(u64 *)(g_base + OFF_GD_HOLDER);
+    u64 gd = gh ? *(u64 *)gh : 0;
+    if (!gd || !*(u64 *)(gd + 0xc18)) return 0;
+    u32 n = *(u32 *)(gd + 0xc10);
+    return n > 4096 ? 4096 : n;
+}
 
 static u32 gd_bool_count(void)
 {
@@ -170,6 +180,11 @@ static void snap_take(void)
     u64 gd = *(u64 *)*(u64 *)(g_base + OFF_GD_HOLDER);
     u32 n = gd_bool_count();
     for (u32 i = 0; i < n; i++) g_gd_snap[i] = *(u8 *)(*(u64 *)(gd + 24) + i * 24ull + 22);
+    {
+        u32 m = gd_int_count();
+        u64 base = *(u64 *)(gd + 0xc18);
+        for (u32 i = 0; i < m * 4; i++) g_int_snap[i] = *(u64 *)(base + i * 8ull);
+    }
     g_snap_have = 1;
 }
 
@@ -204,7 +219,7 @@ static void snap_diff(void)
 static void refresh_counts(void)
 {
     if (!game_ready()) return;
-    if (g_snap_pending) { g_snap_pending = 0; snap_diff(); }
+    if (g_snap_pending) { g_snap_pending--; snap_diff(); }
     for (int i = 0; i < ITEM_COUNT; i++) {
         int c = item_count_of(i);
         if (c != g_icount[i]) { g_icount[i] = c; g_gen++; }
@@ -251,7 +266,7 @@ static void item_edit(int item, int op)
     } else {
         result = pouch_change(is_mask ? alias : name, delta);
     }
-    if (item >= 70 && item < 82) { snap_diff(); g_snap_pending = 1; }
+    if (item >= 70 && item < 82) { snap_diff(); g_snap_pending = 4; }
     if (item >= 70 && item < 82 && result != -1) g_song_mem[item] = delta > 0 ? 1 : 0;
     dbgx("item edit, item", (u64)item);
     if (item >= 70 && item < 82) dbgx("item edit, raw pouch count", (u64)(long)pouch_count_name(name));
