@@ -139,6 +139,26 @@ static void speed_step(u64 a)
                     dbgx("timer scan done, objects", (u64)np);
                 }
             }
+            {   /* the game decides the freefall animation and damage by fall HEIGHT: look for the stored height the fall started from */
+                static float y0;
+                if (g_clamp_log == 0) y0 = g_sp_prev[1];
+                if (g_clamp_log == 30) {
+                    float yn = g_sp_prev[1];
+                    dbgx("fall start y bits", *(u32 *)&y0);
+                    dbgx("fall now y bits", *(u32 *)&yn);
+                    for (int who = 0; who < 3; who++) {
+                        u64 base = who == 0 ? a : who == 1 ? c : *(u64 *)(c + 0x20);
+                        if (!base) continue;
+                        for (int i = 0; i < 0x200; i++) {
+                            float v = *(float *)(base + i * 4);
+                            if (v > yn + 1.0f && v < y0 + 0.5f) {
+                                dbgx("height? who(0 actor 1 ctl 2 obj20)<<16|off", ((u64)who << 16) | (u64)(i * 4));
+                                dbgx("height? value bits", *(u32 *)&v);
+                            }
+                        }
+                    }
+                }
+            }
             g_clamp_log++;
             if (*vy < -3.5f) *vy = -3.5f;
             if (*ay < -3.5f) *ay = -3.5f;
