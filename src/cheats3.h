@@ -95,6 +95,16 @@ static void speed_step(u64 a)
             if (g_cheat[6] && dy < -0.02f) {
                 if (fall_log < 90 && (fall_log & 1) == 0)
                     dbgx("fall dy*1000 | falling<<32 | moving<<33 | jumping<<34", (u64)(long)(-dy * 1000.f) | ((u64)falling << 32) | ((u64)moving << 33) | ((u64)jumping << 34));
+                if (fall_log == 15 || fall_log == 40 || fall_log == 70) {   /* which actor fields hold the fall speed? */
+                    dbgx("fall sample at step", (u64)fall_log);
+                    dbgx("fall sample dy*1000000", (u64)(long)(-dy * 1000000.f));
+                    int shown = 0;
+                    for (u32 off = 0; off < 0xa00 && shown < 60; off += 4) {
+                        u32 bits = *(u32 *)(a + off);
+                        float f = *(float *)&bits;
+                        if (f < -0.01f && f > -8.0f) { dbgx("fall field offset | bits<<32", (u64)off | ((u64)bits << 32)); shown++; }
+                    }
+                }
                 fall_log++;
             } else fall_log = 0;
         }
