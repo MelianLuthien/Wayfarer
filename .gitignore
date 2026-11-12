@@ -19,3 +19,8 @@ src/icons.h
 src/panel.h
 src/logo.h
 src/font.h
+
+# third-party release candidate used as a reference, and the artist's raw source sheets: never commit
+rc1/
+wayfarer-art/sheet*
+wayfarer-art/songs_screenshot.webp
