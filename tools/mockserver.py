@@ -53,7 +53,7 @@ addEventListener("keydown",e=>{const k=e.key.length==1?e.key.toLowerCase():e.key
 c.onclick=e=>{const r=c.getBoundingClientRect();info.dataset.pos="x "+Math.round((e.clientX-r.left)/r.width*540)+", y "+Math.round((e.clientY-r.top)/r.height*340);fill()};
 function fill(){info.innerHTML="Keys: arrows move, Enter = A, Esc = B, X, Y, Q / E = L / R (or use the buttons).<br>"+(info.dataset.pos?"Clicked: "+info.dataset.pos+" (menu units, 540 x 340)":"Click the menu to read a position.")}
 fill();
-setInterval(async()=>{try{const s=(await (await fetch("/stamp.json",{cache:"no-store"})).json()).t;if(s!=stamp){stamp=s;await load()}}catch(e){}},700);
+setInterval(async()=>{try{const s=(await (await fetch("/stamp.json",{cache:"no-store"})).json()).t;if(s!=stamp){stamp=s;try{await load()}catch(e){location.reload()}}}catch(e){}},700);
 </script>"""
 
 
