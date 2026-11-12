@@ -568,7 +568,7 @@ static void paint_panel(void)
                 }
                 int ic = i < 42 ? ICON_SWORD_KOKIRI + i : i < 56 ? ICON_SWORD_KOKIRI + i :
                          i < 58 ? ICON_WALLET_ADULT + (i - 56) : i < 61 ? ICON_MAGIC_METER + (i - 58) :
-                         i < 70 ? ICON_STONE_KOKIRI + (i - 61) : i < 82 ? ICON_SONG_ZELDA + (i - 70) :
+                         i < 70 ? ICON_STONE_KOKIRI + (i - 61) : i < 82 ? ICON_SONG_ZELDA + (i < 76 ? (int)"\0\4\5\2\1\3"[i - 70] : i - 70) :
                          ICON_STONE_AGONY + (i - 82);
                 g_icon_am = have ? 255 : 82;
                 draw_icon(x + 3, y + 3, 30, ic);
@@ -592,7 +592,21 @@ static void paint_panel(void)
                 while (*w) st[k++] = *w++;
                 st[k] = 0;
             }
-            text(1, 48, 532, nth(item_labels, g_isel), DESC, 255);
+            {
+                static const char need_txt[] = "the Forest Medallion\0the Fire Medallion\0the Water Medallion\0the Shadow Medallion\0the Spirit Medallion\0the Light Medallion\0"
+                                               "the Deku-Stick Bag\0the Deku-Nut Bag\0the Bomb Bag\0the Arrow Quiver\0the Deku-Seed Bag\0";
+                int need = g_isel >= 76 && g_isel < 82 ? g_isel - 76 : g_isel == 11 ? 6 : g_isel == 12 ? 7 :
+                           g_isel == 13 ? 8 : g_isel == 18 ? 9 : g_isel == 16 ? 10 : -1;
+                char ln[112];
+                int q = 0;
+                for (const char *w = nth(item_labels, g_isel); *w && q < 60; ) ln[q++] = *w++;
+                if (need >= 0) {
+                    for (const char *w = need < 6 ? " - works only with " : " - needs "; *w; ) ln[q++] = *w++;
+                    for (const char *w = nth(need_txt, need); *w && q < 110; ) ln[q++] = *w++;
+                }
+                ln[q] = 0;
+                text(1, 48, 532, ln, DESC, 255);
+            }
             text_r(1, 492, 532, st, g_icount[g_isel] > 0 ? GREEN : DESC);
         }
     } else if (g_tab == 3) {

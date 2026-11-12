@@ -72,11 +72,15 @@ static int mask_alias(const char *name, char *alias)
     return 1;
 }
 
+/* The game's pouch count does not seem to report songs, so remember the ones this menu gave or took. */
+static volatile u8 g_song_mem[ITEM_COUNT];
+
 static int item_count_of(int item)
 {
     const char *name = nth(item_pouch, item);
     char alias[64];
     int n = pouch_count_name(name);
+    if (item >= 70 && item < 82) return n > 0 ? n : g_song_mem[item];
     if (!mask_alias(name, alias)) return n;
     int m = pouch_count_name(alias);
     return n > m ? n : m;
@@ -133,7 +137,9 @@ static void item_edit(int item, int op)
     } else {
         result = pouch_change(is_mask ? alias : name, delta);
     }
+    if (item >= 70 && item < 82 && result != -1) g_song_mem[item] = delta > 0 ? 1 : 0;
     dbgx("item edit, item", (u64)item);
+    if (item >= 70 && item < 82) dbgx("item edit, raw pouch count", (u64)(long)pouch_count_name(name));
     dbgx("item edit, status", (u64)(long)result);
     g_icnt_dirty = 1;
 }
