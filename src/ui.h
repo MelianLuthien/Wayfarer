@@ -382,8 +382,9 @@ static void plate(float x, float y, float w, float h, float rad)
 /* The highlight on the selected row. */
 static void sel_box(float x, float y, float w, float h)
 {
-    rr(x, y, w, h, 3, 0, WOOD, WOOD, 51);
-    rr(x, y, w, h, 3, 1.5f, WOOD, WOOD, 255);
+    rr(x, y, w, h, 4, 0, 0xf0b862, 0xd08a3a, 85);          /* warm glow, no heavy ring that could touch the text */
+    rr(x, y, w, h, 4, 1.0f, 0x9a6226, 0x9a6226, 150);
+    rr(x + 3.0f, y + h * 0.5f - 3.0f, 2.0f, 6.0f, 1.0f, 0, 0x8a5020, 0x8a5020, 220);   /* small marker at the left */
 }
 
 /* A wooden toggle, 40 x 16, like a carved wooden slider: dark rim, plank inside, round wooden knob. */
@@ -465,11 +466,11 @@ static void paint_panel(void)
             if (i == g_sel) sel_box(46, (float)y, 448, 19);
             draw_icon(52, y + 1, 17, row_icon[i]);
             text(0, 79, 2 * y + 19, row_label(i), INK, 255);
-            if (i < 6) slider(450, (float)y + 1.5f, g_cheat[i == 5 ? 6 : i] ? 1 : 0);
+            if (i < 6) slider(446, (float)y + 1.5f, g_cheat[i == 5 ? 6 : i] ? 1 : 0);
             else {
                 static const char sp_txt[] = "1x\0" "1.5x\0" "2x\0" "3x";
                 static const char jp_txt[] = "1x\0" "2x\0" "3x\0" "5x";
-                selector(488, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
+                selector(482, 2 * y + 19, nth(i == 6 ? sp_txt : jp_txt, (i == 6 ? g_speed : g_jump) & 3));
             }
         }
         text(1, 48, 532, row_desc(g_sel), DESC, 255);
@@ -545,9 +546,9 @@ static void paint_panel(void)
                 t[0] = (char)('0' + g_hour / 10);
                 t[1] = (char)('0' + g_hour % 10);
                 t[2] = ':'; t[3] = '0'; t[4] = '0'; t[5] = 0;
-                selector(488, 2 * y + 26, t);
+                selector(482, 2 * y + 26, t);
             } else if (i == 4) {
-                slider(450, (float)y + 5, g_cheat[5] ? 1 : 0);
+                slider(446, (float)y + 5, g_cheat[5] ? 1 : 0);
             }
         }
         text(1, 48, 532, nth(wdescs_blob, g_wsel), DESC, 255);
