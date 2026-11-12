@@ -100,31 +100,9 @@ static int item_count_of(int item)
 static u32 g_icnt_tick;
 static volatile int g_icnt_dirty;
 
-/* One-time check of the song flag slots: log each flag's hash and value, so the slot order can be confirmed. */
-static int g_flagcheck_done;
-
-static void song_flag_check(void)
-{
-    u64 gh = *(u64 *)(g_base + OFF_GD_HOLDER);
-    u64 gd = gh ? *(u64 *)gh : 0;
-    if (!gd) return;
-    u64 table = *(u64 *)(gd + 32);
-    u32 size = *(u32 *)(gd + 44);
-    if (!table || !size) return;
-    for (u32 slot = 0; slot < size; slot++) {
-        u32 key = *(u32 *)(table + slot * 8ull), idx = *(u32 *)(table + slot * 8ull + 4);
-        if (key && idx >= 0x22c7 && idx <= 0x22d3) {
-            u8 *v = (u8 *)(*(u64 *)(gd + 24) + idx * 24ull + 22);
-            dbgx("song flag slot | hash<<32", (u64)idx | ((u64)key << 32));
-            dbgx("song flag value", *v);
-        }
-    }
-}
-
 static void refresh_counts(void)
 {
     if (!game_ready()) return;
-    if (!g_flagcheck_done) { g_flagcheck_done = 1; song_flag_check(); }
     for (int i = 0; i < ITEM_COUNT; i++) {
         int c = item_count_of(i);
         if (c != g_icount[i]) { g_icount[i] = c; g_gen++; }
@@ -163,7 +141,6 @@ static void item_edit(int item, int op)
         u8 *f = song_flag_ptr(item);
         if (delta < 0) { if (f) *f = 0; result = 0; }
         else { result = pouch_change(name, 1); f = song_flag_ptr(item); if (f) *f = 1; }
-        dbgx("song edit, item", (u64)item);
         g_icnt_dirty = 1;
         return;
     }
@@ -178,9 +155,7 @@ static void item_edit(int item, int op)
     } else {
         result = pouch_change(is_mask ? alias : name, delta);
     }
-    dbgx("item edit, item", (u64)item);
-    if (item >= 70 && item < 82) dbgx("item edit, raw pouch count", (u64)(long)pouch_count_name(name));
-    dbgx("item edit, status", (u64)(long)result);
+    (void)result;
     g_icnt_dirty = 1;
 }
 

@@ -75,7 +75,6 @@ static u64 gameplay_view(void)
 static const float speed_mul[4] = {1.0f, 1.5f, 2.0f, 3.0f};
 static const float jump_mul[4] = {1.0f, 2.0f, 3.0f, 5.0f};
 static u64 g_sp_actor;
-static int g_clamp_log;
 static float g_sp_prev[3], g_sp_pdy;
 
 static void speed_step(u64 a)
@@ -91,114 +90,15 @@ static void speed_step(u64 a)
         int moving = d2 > 4e-4f;   /* below this it is idle sway or floor snapping: scaling that makes Link fidget */
         /* chicken gravity: falling (not walking downhill) is slowed to a float, like carrying a cucco */
         int falling = g_cheat[6] && dy < -0.03f && (dy * dy > d2 || dy < g_sp_pdy - 0.002f);
-        {   /* probe: with Chicken Gravity OFF, dump Link's actor and controller on the 25th frame of a fall (a normal fall, then a fall holding a cucco) */
-            static int air, dumps;
-            int dn = !g_cheat[6] && dy < -0.03f && (dy * dy > d2 || dy < g_sp_pdy - 0.002f);
-            air = dn ? air + 1 : 0;
-            if (air == 25 && dumps < 4) {
-                dbgx("DUMP number", (u64)dumps);
-                for (int who = 0; who < 2; who++)
-                    for (int i = 0; i < 512; i++) {
-                        u32 w = *(u32 *)((who ? c : a) + i * 4);
-                        if (w) { dbgx("dump off", ((u64)who << 16) | (u64)(i * 4)); dbgx("dump word", w); }
-                    }
-                dumps++;
-            }
-        }
         g_sp_pdy = dy;
         /* The game's own downward speed (controller +0x2d4, in units per second) keeps growing the longer you fall;
          * past a limit it plays the freefall animation and hurts. Holding it down keeps a fall a gentle float. */
         if (falling && !jumping) {
             float *vy = (float *)(c + 0x2d4), *ay = (float *)(a + 0x38c), *by = (float *)(a + 0x3a4);   /* the actor keeps copies */
-            if (g_clamp_log == 20 || g_clamp_log == 21) {   /* find the air-time timer: in objects Link points to, words that go up by 1, or floats that creep up by one frame's worth */
-                static u64 sp[48];
-                static u32 sw[48][0x180];
-                static int np;
-                if (g_clamp_log == 20) {
-                    np = 0;
-                    for (int who = 0; who < 2; who++)
-                        for (int off = 0; off < 0x800 && np < 48; off += 8) {
-                            u64 p = *(u64 *)((who ? c : a) + off);
-                            long long dd = (long long)p - (long long)a;
-                            if ((p & 7) || dd > 0x4000000LL || dd < -0x4000000LL || (p >> 12) == (a >> 12) || (p >> 12) == (c >> 12)) continue;
-                            int dup = 0;
-                            for (int k = 0; k < np; k++) if (sp[k] == p) dup = 1;
-                            if (dup) continue;
-                            sp[np] = p;
-                            for (int i = 0; i < 0x180; i++) sw[np][i] = *(u32 *)(p + i * 4);
-                            np++;
-                        }
-                } else {
-                    for (int k = 0; k < np; k++)
-                        for (int i = 0; i < 0x180; i++) {
-                            u32 o = sw[k][i], n = *(u32 *)(sp[k] + i * 4);
-                            float fo = *(float *)&o, fn = *(float *)&n;
-                            int hit = (n == o + 1 && o > 0 && o < 0x1000000) || (fn > fo + 0.004f && fn < fo + 0.12f && fn > 0.02f && fn < 100.0f && fo > 0.0f);
-                            if (hit) { dbgx("timer? ptr k", (u64)k); dbgx("timer? word offset", (u64)i * 4); dbgx("timer? old|new", ((u64)o << 32) | n); }
-                        }
-                    dbgx("timer scan done, objects", (u64)np);
-                }
-            }
-            {   /* the game decides the freefall animation and damage by fall HEIGHT: look for the stored height the fall started from */
-                static float y0;
-                if (g_clamp_log == 0) y0 = g_sp_prev[1];
-                if (g_clamp_log == 30) {
-                    float yn = g_sp_prev[1];
-                    dbgx("fall start y bits", *(u32 *)&y0);
-                    dbgx("fall now y bits", *(u32 *)&yn);
-                    for (int who = 0; who < 3; who++) {
-                        u64 base = who == 0 ? a : who == 1 ? c : *(u64 *)(c + 0x20);
-                        if (!base) continue;
-                        for (int i = 0; i < 0x200; i++) {
-                            float v = *(float *)(base + i * 4);
-                            if (v > yn + 1.0f && v < y0 + 0.5f) {
-                                dbgx("height? who(0 actor 1 ctl 2 obj20)<<16|off", ((u64)who << 16) | (u64)(i * 4));
-                                dbgx("height? value bits", *(u32 *)&v);
-                            }
-                        }
-                    }
-                }
-            }
-            if (g_clamp_log >= 1) *(float *)(a + 0x2f0) = g_sp_prev[1];   /* test: a stored height found between the start and the current height of a fall */
-            if (g_clamp_log >= 30 && g_clamp_log < 34) dbgx("actor 2f0 now", *(u32 *)(a + 0x2f0));
-            {   /* state machine probe: log every small-integer word of the actor and controller that changes during a fall, with the frame number */
-                static u32 snap[2][1024];
-                static int logged;
-                if (g_clamp_log == 0) { logged = 0; for (int w = 0; w < 2; w++) for (int i = 0; i < 1024; i++) snap[w][i] = *(u32 *)((w ? c : a) + i * 4); }
-                else {
-                    for (int w = 0; w < 2; w++)
-                        for (int i = 0; i < 1024; i++) {
-                            u32 n = *(u32 *)((w ? c : a) + i * 4), o = snap[w][i];
-                            snap[w][i] = n;
-                            if (n == o || n > 0x10000 || o > 0x10000 || (w == 0 && i * 4 == 0x6ac) || logged > 400) continue;
-                            logged++;
-                            dbgx("st frame", (u64)g_clamp_log);
-                            dbgx("st off", ((u64)w << 16) | (u64)(i * 4));
-                            dbgx("st old|new", ((u64)o << 32) | n);
-                        }
-                }
-            }
-            /* test: two controller flags that switch on about three seconds into a fall, when the freefall starts */
-            *(u32 *)(c + 0x220) = 0;
-            *(u32 *)(c + 0x384) = 0;
-            *(u32 *)(c + 0x1a8) = 1;   /* the three words that pulse a frame before those flags switch on: keep them as they are during a fall */
-            *(u32 *)(c + 0x1ac) = 0;
-            *(u32 *)(c + 0x1b0) = 0;
-            g_clamp_log++;
             if (*vy < -3.5f) *vy = -3.5f;
             if (*ay < -3.5f) *ay = -3.5f;
             if (*by < -3.5f) *by = -3.5f;
-            { float *cp = (float *)(c + 0x6d8); if (*cp < -3.5f) *cp = -3.5f; }
-            {   /* the object at controller +0x20 holds two more copies of the speed (found by the scan) */
-                u64 o = *(u64 *)(c + 0x20);
-                if (o && !(o & 7)) {
-                    float *q1 = (float *)(o + 0xe4), *q2 = (float *)(o + 0x21c);
-                    if (g_clamp_log >= 30 && g_clamp_log < 36) { dbgx("obj e4 bits", *(u32 *)q1); dbgx("obj 21c bits", *(u32 *)q2); }
-                    if (*q1 < -3.5f) *q1 = -3.5f;
-                    if (*q2 < -3.5f) *q2 = -3.5f;
-                }
-            }   /* the controller's own copy of the actor's speed */
-        } else if (!falling) g_clamp_log = 0;
+        }
         if ((moving || jumping || falling) && (d2 + dy * dy < 1.0f || (falling && !jumping && d2 < 1.0f && dy > -8.0f))) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));
             float m = moving ? speed_mul[g_speed & 3] : 1.0f, mv = m;

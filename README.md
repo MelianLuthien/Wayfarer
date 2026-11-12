@@ -44,7 +44,7 @@ Press **R3** while you play and a carved-wood pause menu opens over the game. Wa
 | **Infinite Magic** | Your magic never runs out. |
 | **Infinite Rupees** | Your wallet is always full. |
 | **Infinite Ammo** | Arrows, bombs, Bombchus, Deku Sticks, Deku Nuts and Deku Seeds refill to your current capacity. |
-| **Chicken Gravity** | Fall slowly, as if carrying a cucco. |
+| **Chicken Gravity** | Fall slowly and steadily, as if carrying a cucco. Very long falls still play the freefall animation after about three seconds, so pair it with **God Mode** for tall cliffs. |
 | **Flight** | Fly freely: the left stick moves, **ZR** rises, **ZL** descends. |
 | **Movement Speed** | Run at 1x, 1.5x, 2x or 3x. |
 | **Jump Height** | Jump at 1x, 2x, 3x or 5x. |
@@ -104,7 +104,7 @@ While the menu is open the game doesn't see your inputs. **Free Camera** closes 
 
 ## Status
 
-Wayfarer 1.0 was the first public release; 1.1 adds saved favorites and a floatier Chicken Gravity.
+Wayfarer 1.0 was the first public release; 1.1 adds saved favorites, a steadier Chicken Gravity, working song icons and a marker that shows whether a position is saved.
 
 - Written and tested by hand on **Lichii for Windows** with game version 1.1.1. It has not been tried on real hardware or in other emulators.
 - God Mode, the infinite refills, Movement Speed, Flight, Free Camera and Teleport have had the most play-testing. **Chicken Gravity**, **Jump Height** and Teleport **favorites** are the newest and have had the least.
