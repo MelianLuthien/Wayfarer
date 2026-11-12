@@ -216,13 +216,14 @@ static void do_mark(u64 a)
     for (int i = 0; i < 3; i++) g_mark[i] = *(u32 *)(a + 796 + i * 4);
     g_mark[3] = 0;
     g_mark_ctl = c;
+    g_marked = 1;
     dbg("[wayfarer] position marked\n");
 }
 
 static void do_return(u64 a)
 {
     u64 c = link_controller(a);
-    if (!c || c != g_mark_ctl) { dbg("[wayfarer] return: no mark on this map\n"); return; }
+    if (!c || c != g_mark_ctl) { g_marked = 0; dbg("[wayfarer] return: no mark on this map\n"); return; }
     static u32 arg[4] __attribute__((aligned(16)));
     for (int i = 0; i < 4; i++) arg[i] = g_mark[i];
     ((void (*)(u64, u32 *))(g_base + FN_CHANGE_POS))(c, arg);

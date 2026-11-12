@@ -89,7 +89,9 @@ int main(int argc, char **argv)
     g_sel = 6; paint_panel(); shot(out, "tab0b");
     g_tab = 1; g_isel = 14; paint_panel(); shot(out, "tab1");
     g_isel = 62; paint_panel(); shot(out, "tab1b");
-    g_tab = 2; g_wsel = 2; paint_panel(); shot(out, "tab2");
+    g_tab = 2; g_wsel = 0; g_marked = 1; paint_panel(); shot(out, "tab2m");
+    g_marked = 0; paint_panel(); shot(out, "tab2n");
+    g_wsel = 2; paint_panel(); shot(out, "tab2");
     g_wsel = 3; paint_panel(); shot(out, "tab2b");
     g_tab = 3; g_tfav = (1u << 4) | (1u << 20); g_tsort = 1; g_tl_ok = 0; g_tsel = 2; paint_panel(); shot(out, "tab3");
     g_tab = 0; g_dlg = 1; paint_panel(); shot(out, "dialog");

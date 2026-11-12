@@ -409,6 +409,21 @@ static void slider(int lx, float ly, int on)
     rr(kx - 3.0f, ky - 4.0f, 5.0f, 1.5f, 0.75f, 0, 0xffffff, 0xffffff, 110);            /* knob glint */
 }
 
+/* A carved wooden plate with a round gem: green = yes, red = no. 22 x 22, top-left at (x, y). */
+static void gem_btn(float x, float y, int green)
+{
+    float cx = x + 11.0f, cy = y + 11.0f;
+    rr(x, y + 0.8f, 22, 22, 7, 0, 0, 0, 70);
+    rr(x, y, 22, 22, 7, 0, 0x6b3d1c, 0x3a2010, 255);
+    rr(x + 1.5f, y + 1.5f, 19, 19, 5.5f, 0, 0xf2b25e, 0xd98a3a, 255);
+    rr(x + 1.5f, y + 1.5f, 19, 19, 5.5f, 1.2f, 0x4a2a14, 0x4a2a14, 150);
+    disc(cx, cy + 0.6f, 7.4f, 0, 0, 0, 90);
+    disc(cx, cy, 7.4f, 0x8a5224, 0x5a3014, 0x3a2010, 255);
+    if (green) disc(cx, cy, 6.0f, 0xc8ffb0, 0x4fcf3f, 0x1f8a2a, 255);
+    else disc(cx, cy, 6.0f, 0xffb0a0, 0xe0382c, 0x8a1810, 255);
+    rr(cx - 3.5f, cy - 4.2f, 5.0f, 2.2f, 1.1f, 0, 0xffffff, 0xffffff, 150);
+}
+
 /* Signed distance from (px, py) to a triangle (negative inside); the usual exact formula. */
 static float sd_tri(float px, float py, const float *t)
 {
@@ -634,6 +649,8 @@ static void paint_panel(void)
                 t[1] = (char)('0' + g_hour % 10);
                 t[2] = ':'; t[3] = '0'; t[4] = '0'; t[5] = 0;
                 selector(456, 2 * y + 26, t);
+            } else if (i < 2) {
+                gem_btn(470, (float)y + 2, g_marked);
             } else if (i == 3) {
                 slider(436, (float)y + 5, g_cheat[5] ? 1 : 0);
             }

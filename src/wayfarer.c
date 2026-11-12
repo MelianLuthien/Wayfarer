@@ -185,6 +185,7 @@ static volatile u32 g_tfav;      /* bit n: destination n is a favorite (kept for
 static u8 g_tlist[TP_COUNT];     /* the Teleport list: destination numbers in the order shown */
 static int g_tl_ok;
 static volatile int g_wsel;      /* selected World row */
+static volatile int g_marked;   /* 1 once a position is saved (the World tab shows a green gem) */
 static volatile int g_hour = 12; /* hour chosen on the World tab */
 static volatile int g_isel;      /* selected inventory item */
 volatile int g_world_req;        /* 1 time, 2 mark, 3 return, 4 age: served on the game thread */

@@ -113,6 +113,7 @@ static void speed_step(u64 a)
             if (*vy < -3.5f) *vy = -3.5f;
             if (*ay < -3.5f) *ay = -3.5f;
             if (*by < -3.5f) *by = -3.5f;
+            { float *cp = (float *)(c + 0x6d8); if (*cp < -3.5f) *cp = -3.5f; }   /* the controller's own copy of the actor's speed */
         } else if (!falling) g_clamp_log = 0;
         if ((moving || jumping || falling) && (d2 + dy * dy < 1.0f || (falling && !jumping && d2 < 1.0f && dy > -8.0f))) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));

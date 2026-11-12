@@ -60,7 +60,7 @@ Every item in the game, as an icon grid: swords, shields, tunics, boots, bows an
 
 | Option | What it does |
 | --- | --- |
-| **Save Position** | Remember where you are standing. |
+| **Save Position** | Remember where you are standing. A gem on the row turns green once a spot is saved (red when none). |
 | **Return to Position** | Go back to your saved spot. |
 | **Time of Day** | Pick an hour with Left / Right and apply it with **A**. |
 | **Free Camera** | Fly the camera around while Link stands still. Sticks move and look, **ZR** / **ZL** rise and descend, **A** speeds up. |
