@@ -91,14 +91,15 @@ static void speed_step(u64 a)
         /* chicken gravity: falling (not walking downhill) is slowed to a float, like carrying a cucco */
         int falling = g_cheat[6] && dy < -0.03f && (dy * dy > d2 || dy < g_sp_pdy - 0.002f);
         g_sp_pdy = dy;
-        if ((moving || jumping || falling) && d2 + dy * dy < 1.0f) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
+        if ((moving || jumping || falling) && (d2 + dy * dy < 1.0f || (falling && !jumping && d2 < 1.0f && dy > -8.0f))) {   /* ordinary walking; a bigger jump is a teleport or a cutscene */
             static float arg[4] __attribute__((aligned(16)));
             float m = moving ? speed_mul[g_speed & 3] : 1.0f, mv = m;
             if (jumping) mv = jump_mul[g_jump & 3];
-            else if (falling) mv = 0.5f;
+            else if (falling) mv = 0.35f;   /* the game's fall speed keeps growing, so also cap the step: a float, never a freefall */
             x = g_sp_prev[0] + dx * m;
             z = g_sp_prev[2] + dz * m;
-            y = g_sp_prev[1] + dy * mv;   /* scale the climb too, or slopes push Link under the floor */
+            y = g_sp_prev[1] + dy * mv;
+            if (falling && !jumping && y < g_sp_prev[1] - 0.4f) y = g_sp_prev[1] - 0.4f;   /* scale the climb too, or slopes push Link under the floor */
             arg[0] = x; arg[1] = y; arg[2] = z; arg[3] = 0.f;
             ((void (*)(u64, float *))(g_base + FN_CHANGE_POS))(c, arg);
         }
