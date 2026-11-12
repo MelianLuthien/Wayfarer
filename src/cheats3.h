@@ -181,6 +181,9 @@ static void speed_step(u64 a)
             /* test: two controller flags that switch on about three seconds into a fall, when the freefall starts */
             *(u32 *)(c + 0x220) = 0;
             *(u32 *)(c + 0x384) = 0;
+            *(u32 *)(c + 0x1a8) = 1;   /* the three words that pulse a frame before those flags switch on: keep them as they are during a fall */
+            *(u32 *)(c + 0x1ac) = 0;
+            *(u32 *)(c + 0x1b0) = 0;
             g_clamp_log++;
             if (*vy < -3.5f) *vy = -3.5f;
             if (*ay < -3.5f) *ay = -3.5f;
