@@ -178,6 +178,9 @@ static void speed_step(u64 a)
                         }
                 }
             }
+            /* test: two controller flags that switch on about three seconds into a fall, when the freefall starts */
+            *(u32 *)(c + 0x220) = 0;
+            *(u32 *)(c + 0x384) = 0;
             g_clamp_log++;
             if (*vy < -3.5f) *vy = -3.5f;
             if (*ay < -3.5f) *ay = -3.5f;
