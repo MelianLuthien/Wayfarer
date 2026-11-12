@@ -96,18 +96,24 @@ static void speed_step(u64 a)
          * past a limit it plays the freefall animation and hurts. Holding it down keeps a fall a gentle float. */
         if (falling && !jumping) {
             float *vy = (float *)(c + 0x2d4), *ay = (float *)(a + 0x38c), *by = (float *)(a + 0x3a4);   /* the actor keeps copies */
-            {   /* find the air-time state: snapshot actor and controller at fall frame 20, log every word that changed by frame 21 */
-                static u32 sa[512], sc[512];
-                if (g_clamp_log == 20 || g_clamp_log == 21) {
-                    for (int i = 0; i < 512; i++) {
-                        u32 na = *(u32 *)(a + i * 4), nc = *(u32 *)(c + i * 4);
-                        if (g_clamp_log == 21) {
-                            if (na != sa[i]) { dbgx("diff actor off", (u64)i * 4); dbgx("diff old|new", ((u64)sa[i] << 32) | na); }
-                            if (nc != sc[i]) { dbgx("diff ctl off", (u64)i * 4); dbgx("diff old|new", ((u64)sc[i] << 32) | nc); }
+            if (g_clamp_log == 25) {   /* where does the game keep the real fall speed? scan the objects Link points to for a float equal to it */
+                float v = *ay;
+                for (int who = 0; who < 2; who++) {
+                    u64 src = who ? c : a;
+                    for (int off = 0; off < 0x800; off += 8) {
+                        u64 p = *(u64 *)(src + off);
+                        long long dd = (long long)p - (long long)a;
+                        if ((p & 7) || dd > 0x4000000LL || dd < -0x4000000LL || (p >> 12) == (a >> 12) || (p >> 12) == (c >> 12)) continue;
+                        for (int i = 0; i < 0x180; i++) {
+                            float f = *(float *)(p + i * 4);
+                            if (f < v + 0.05f && f > v - 0.05f) {
+                                dbgx("ptr src(1=ctl)<<16|off", ((u64)who << 16) | (u64)off);
+                                dbgx("ptr target word offset", (u64)i * 4);
+                            }
                         }
-                        sa[i] = na; sc[i] = nc;
                     }
                 }
+                dbgx("scan done, v bits", *(u32 *)&v);
             }
             g_clamp_log++;
             if (*vy < -3.5f) *vy = -3.5f;
