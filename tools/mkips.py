@@ -12,7 +12,12 @@ import sys
 
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 NSO_HDR = 0x100
-CAVE = 0x3C46380 - NSO_HDR          # first trampoline (memory offset)
+# First trampoline (memory offset). Lichii's built-in Ocarina patches (FPS Unlock, Dynamic FPS,
+# Texture Pool x2, ...) write their own code into main's padding at 0x3C46200-0x3C46BFC and
+# 0x3C46F00-0x3C46F14, and skip themselves when a user mod has touched those bytes, so the
+# trampolines live in the gap between them.
+CAVE = 0x3C46C00
+CAVE_END = 0x3C46F00
 BRIDGE = 0x4E9F000                  # page of the bridge table (memory offset)
 
 # (site IPS offset, slot offset in bridge page, original bl target IPS offset)
@@ -139,7 +144,7 @@ def records():
     recs.append((CAM_SITE, b(CAM_SITE - NSO_HDR, pc)))
     recs.append((pc + NSO_HDR, cam))
     pc += len(cam)
-    assert pc < 0x3C47000
+    assert pc <= CAVE_END, hex(pc)
     return recs
 
 

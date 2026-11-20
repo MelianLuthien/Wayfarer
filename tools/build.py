@@ -60,7 +60,8 @@ def main():
         "-I", os.path.join(build, "art"),
         "-ffreestanding", "-fno-builtin", "-fno-stack-protector", "-fno-pic", "-fno-pie",
         "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-Wall", "-Wextra",
-        "-DWF_VARIANT=%d" % args.variant, "-nostdlib", "-static", "-Wl,-T," + os.path.join(ROOT, "src", "link.ld"),
+        "-DWF_VARIANT=%d" % args.variant, "-DWF_ACTOR_FALLBACK=%#xull" % mkips.ACTOR_FALLBACK,
+        "-nostdlib", "-static", "-Wl,-T," + os.path.join(ROOT, "src", "link.ld"),
         "-Wl,--build-id=none", "-o", elf, os.path.join(ROOT, "src", "wayfarer.c"),
     ]
     subprocess.run(cmd, check=True)
