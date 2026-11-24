@@ -23,6 +23,12 @@ typedef unsigned char u8;
 #define MAIN_MOD0_WORD  0x3c4705cu     /* word at main+4: offset of MOD0 */
 #define BRIDGE_OFFSET   0x4E9F800ull   /* bridge table inside main's bss */
 #define BRIDGE_BYTES    0x80ull
+
+/* Where the IPS puts the actor trampoline's fallback (memory offset from main). build.py passes
+ * mkips.ACTOR_FALLBACK so the module and the patch always agree on the cave layout. */
+#ifndef WF_ACTOR_FALLBACK
+#error "WF_ACTOR_FALLBACK comes from tools/build.py (mkips.ACTOR_FALLBACK)"
+#endif
 #define NVN_LOADER      0x129E290ull   /* main: fn(device, getProcAddress) */
 #define NVN_TABLE       0x4c8dde8ull   /* main: pointers to the game's NVN function slots */
 
@@ -795,7 +801,7 @@ void wf_init(void)
     t[3] = (u64)wf_thunk3;   /* 0x818 */
     t[4] = (u64)wf_thunk4;   /* 0x820 */
     t[5] = (u64)wf_nvn_load; /* 0x828 */
-    wf_actor_orig = base + 0x3c4631c;
+    wf_actor_orig = base + WF_ACTOR_FALLBACK;   /* the actor trampoline's "pacibsp; b body" tail */
     t[9] = (u64)wf_actor_thunk; /* 0x848 */
     t[15] = (u64)wf_cam_hook;   /* 0x878 */
     __asm__ volatile("dmb ish" ::: "memory");
