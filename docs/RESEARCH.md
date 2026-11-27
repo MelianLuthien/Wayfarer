@@ -51,6 +51,10 @@ Use file offsets in the mod. Derived by matching Hookshot's function table again
   `0x3C46280+`, then `0x3C46C00+`, each of which Lichii or Fritchii built-in patches also wrote) that loads a
   function pointer from a bridge table at `0x4E9F800+` (8-byte slots) and branches to it when non-null,
   otherwise runs the original instruction.
+- Padding use (checked against Fritchii v6.5 source and the Lichii ranges from pull request 1): the first three
+  gaps are clear of both. The last gap (`0x3C46C00-0x3C46DC0`) is clear of built-ins, but a community ultrawide
+  mod and some cheats (`0x3C46CC0-0x3C46DB0`, written while the game runs) use it, so they can clash with
+  Wayfarer. Avoiding that needs a much shorter camera trampoline. Recheck when either emulator is updated.
 - rc1 module init (DT_INIT at text 0xE0): checks the title id with `svc 0x29`, finds `main` by walking
   `QueryMemory` downward for the RX region of size 0x3C47000 whose word at +4 is 0x3C4705C, checks the bridge
   table is empty, then fills slots. The module's `ret` at text 0 and MOD0 offset at text 4 are the NSO entry.
