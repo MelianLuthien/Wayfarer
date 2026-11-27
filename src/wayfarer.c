@@ -111,7 +111,7 @@ static int get_program_id(u64 *out)
 /* ---- time and "is the world running" ------------------------------------ */
 
 /* Bumped with every build (vYYMMDD.N). */
-#define WF_VERSION "v1.1"
+#define WF_VERSION "v1.1.1"
 
 static u64 now_ms(void)
 {

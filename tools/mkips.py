@@ -12,12 +12,16 @@ import sys
 
 BUILD_ID = "E0F3CCFAF50065AE4EA01EB5AEB13B1A45DA3348"
 NSO_HDR = 0x100
-# First trampoline (memory offset). Lichii's built-in Ocarina patches (FPS Unlock, Dynamic FPS,
-# Texture Pool x2, ...) write their own code into main's padding at 0x3C46200-0x3C46BFC and
-# 0x3C46F00-0x3C46F14, and skip themselves when a user mod has touched those bytes, so the
-# trampolines live in the gap between them.
-CAVE = 0x3C46C00
-CAVE_END = 0x3C46F00
+# Where trampolines may go: the parts of main's padding (memory offsets, 0x3C461D0-0x3C47000) that
+# neither Lichii's nor Fritchii's (v6.5) built-in Ocarina patches write. A built-in skips itself when
+# a user mod has touched one of its bytes, so staying inside these gaps matters. The last gap is also
+# used by a community ultrawide mod and by some cheats (0x3C46CC0-0x3C46DB0): see docs/RESEARCH.md.
+GAPS = (
+    (0x3C461D0, 0x3C46200),
+    (0x3C46290, 0x3C462C0),
+    (0x3C462CC, 0x3C46300),
+    (0x3C46C00, 0x3C46DC0),
+)
 BRIDGE = 0x4E9F000                  # page of the bridge table (memory offset)
 
 # (site IPS offset, slot offset in bridge page, original bl target IPS offset)
@@ -60,8 +64,6 @@ ACTOR_SLOT = 0x848
 LIFE_SITE = 0x49DDF8      # IPS offset: `cas w11, w12, [x13]` that writes Link's life
 LIFE_BACK = 0x49DCFC      # memory offset of the instruction after it
 LIFE_SLOT = 0x870         # data slot: address of Link's life word while God Mode is on, else 0
-# memory offset (from main) of the actor trampoline's fallback (pacibsp; b body)
-ACTOR_FALLBACK = CAVE + 7 * 20 + 16
 
 
 def actor_trampoline(pc):
@@ -125,26 +127,41 @@ def camera_trampoline(pc):
     return code
 
 
+def layout():
+    """Give each trampoline an address: first gap with room, biggest pieces first."""
+    free = [list(gap) for gap in GAPS]
+
+    def take(size):
+        for gap in free:
+            if gap[0] + size <= gap[1]:
+                gap[0] += size
+                return gap[0] - size
+        raise ValueError("no room left for a %d-byte trampoline" % size)
+
+    camera = take(len(camera_trampoline(GAPS[-1][0])))   # its length does not depend on its address
+    life = take(44)
+    actor = take(24)
+    npad = [take(20) for _ in NPAD_HOOKS]
+    return camera, life, actor, npad
+
+
+CAMERA_AT, LIFE_AT, ACTOR_AT, NPAD_AT = layout()
+# memory offset (from main) of the actor trampoline's fallback (pacibsp; b body)
+ACTOR_FALLBACK = ACTOR_AT + 16
+
+
 def records():
     recs = []
-    pc = CAVE
-    for site, slot, orig in NPAD_HOOKS:
+    for pc, (site, slot, orig) in zip(NPAD_AT, NPAD_HOOKS):
         site_m, orig_m = site - NSO_HDR, orig - NSO_HDR
         recs.append((site, b(site_m, pc, link=True)))
         recs.append((pc + NSO_HDR, trampoline(pc, slot, orig_m)))
-        pc += 20
-    assert pc + 16 == ACTOR_FALLBACK
-    recs.append((ACTOR_SITE, b(ACTOR_SITE - NSO_HDR, pc)))
-    recs.append((pc + NSO_HDR, actor_trampoline(pc)))
-    pc += 24
-    recs.append((LIFE_SITE, b(LIFE_SITE - NSO_HDR, pc)))
-    recs.append((pc + NSO_HDR, life_trampoline(pc)))
-    pc += 44
-    cam = camera_trampoline(pc)
-    recs.append((CAM_SITE, b(CAM_SITE - NSO_HDR, pc)))
-    recs.append((pc + NSO_HDR, cam))
-    pc += len(cam)
-    assert pc <= CAVE_END, hex(pc)
+    recs.append((ACTOR_SITE, b(ACTOR_SITE - NSO_HDR, ACTOR_AT)))
+    recs.append((ACTOR_AT + NSO_HDR, actor_trampoline(ACTOR_AT)))
+    recs.append((LIFE_SITE, b(LIFE_SITE - NSO_HDR, LIFE_AT)))
+    recs.append((LIFE_AT + NSO_HDR, life_trampoline(LIFE_AT)))
+    recs.append((CAM_SITE, b(CAM_SITE - NSO_HDR, CAMERA_AT)))
+    recs.append((CAMERA_AT + NSO_HDR, camera_trampoline(CAMERA_AT)))
     return recs
 
 

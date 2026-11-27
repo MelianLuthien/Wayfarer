@@ -47,8 +47,8 @@ Use file offsets in the mod. Derived by matching Hookshot's function table again
   below and in the IPS files is an IPS offset; subtract 0x100 to index the flat `main` image. (The Hookshot
   function addresses in the table above are memory offsets already.) Verified: `cas w11,w12,[x13]` is at
   memory 0x49DCF8 (IPS 0x49DDF8).
-- The IPS patches 17 sites in `main`. Each jumps to a trampoline in a code cave at memory `0x3C46C00+` (IPS `0x3C46D00+`;
-  it was `0x3C46280+` until Lichii's built-in FPS patches turned out to share those bytes) that loads a
+- The IPS patches 17 sites in `main`. Each jumps to a trampoline in a code cave in the padding after `.text` (`GAPS` in `tools/mkips.py`; it was one block at memory
+  `0x3C46280+`, then `0x3C46C00+`, each of which Lichii or Fritchii built-in patches also wrote) that loads a
   function pointer from a bridge table at `0x4E9F800+` (8-byte slots) and branches to it when non-null,
   otherwise runs the original instruction.
 - rc1 module init (DT_INIT at text 0xE0): checks the title id with `svc 0x29`, finds `main` by walking
